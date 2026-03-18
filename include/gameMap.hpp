@@ -29,6 +29,7 @@ public:
         if (r < 0 || r >= 5 || c < 0 || c >= 9) return nullptr;
         return m_Grids[r][c];
     }
+
 };
 
 #endif

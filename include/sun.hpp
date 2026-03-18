@@ -15,7 +15,7 @@ private:
     bool m_IsFlyingToScore = false;
 
 public:
-    Sun(float startX, float targetY);
+    Sun(float startX, float startY, float targetY);
 
     void Update();
 

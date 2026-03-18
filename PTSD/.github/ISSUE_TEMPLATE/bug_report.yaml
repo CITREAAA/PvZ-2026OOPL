@@ -12,7 +12,7 @@ body:
   - type: textarea
     attributes:
       label: "Problem"
-      description: "Describe the current behavior. May include logs, image, or videos."
+      description: "Describe the current behavior. May include logs, images, or videos."
     validations:
       required: true
   - type: textarea

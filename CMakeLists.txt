@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(REPLACE_WITH_YOUR_PROJECT_NAME)
+project(PvZ)
 
 set(CMAKE_CXX_STANDARD 17)
 
@@ -47,6 +47,9 @@ add_executable(${PROJECT_NAME}
         src/plant.cpp
         include/sun.hpp
         src/sun.cpp
+        src/pea.cpp
+        include/pea.hpp
+        include/seedBank.hpp
 )
 
 if(MSVC)

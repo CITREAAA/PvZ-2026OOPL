@@ -3,6 +3,8 @@
 
 #include "pch.hpp"
 #include "GameMap.hpp"
+#include "pea.hpp"
+#include "seedBank.hpp"
 #include "Sun.hpp"
 #include "Util/Renderer.hpp"
 
@@ -27,8 +29,12 @@ private:
     std::shared_ptr<GameMap> m_Map;
     Util::Renderer m_Root;
 
+    std::shared_ptr<SeedBank> m_SeedBank;
+
     std::vector<std::shared_ptr<Sun>> m_Suns;
     int m_SunCurrency = 50;
+
+    std::vector<std::shared_ptr<Pea>> m_Peas;
 };
 
 #endif
