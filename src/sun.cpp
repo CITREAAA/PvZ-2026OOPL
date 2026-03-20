@@ -44,11 +44,6 @@ void Sun::Update() {
         float fallSpeed = 100.0f; // 掉落速度
         m_Transform.translation.y -= fallSpeed * static_cast<float>(Util::Time::GetDeltaTime());
     }
-
-    // 安全檢查：如果掉過頭了，強制拉回到目標高度
-    if (m_Transform.translation.y < m_TargetY) {
-        m_Transform.translation.y = m_TargetY;
-    }
 }
 
 bool Sun::IsClicked(glm::vec2 mousePos) {

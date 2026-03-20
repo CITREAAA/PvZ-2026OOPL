@@ -40,8 +40,7 @@ Peashooter::Peashooter(float x, float y)
 void Peashooter::Update() {
     m_FireTimer += static_cast<float>(Util::Time::GetDeltaTime());
 
-    // 每 1.5 秒發射一顆
-    if (m_FireTimer >= 1.5f) {
+    if (m_FireTimer >= 1.45f) {
         m_ShouldFire = true;
         m_FireTimer = 0.0f;
     }

@@ -7,6 +7,8 @@
 #include "seedBank.hpp"
 #include "Sun.hpp"
 #include "Util/Renderer.hpp"
+#include <vector>
+#include <memory>
 
 class App {
 public:
@@ -23,18 +25,25 @@ public:
     void End();
 
 private:
-    void ValidTask();
+    // --- 核心狀態管理 ---
     State m_CurrentState = State::START;
-
-    std::shared_ptr<GameMap> m_Map;
     Util::Renderer m_Root;
 
-    std::shared_ptr<SeedBank> m_SeedBank;
-
-    std::vector<std::shared_ptr<Sun>> m_Suns;
-    int m_SunCurrency = 50;
-
+    // --- 地圖與植物系統 ---
+    std::shared_ptr<GameMap> m_Map;
     std::vector<std::shared_ptr<Pea>> m_Peas;
+
+    // --- 陽光系統 ---
+    std::vector<std::shared_ptr<Sun>> m_Suns; // 畫面上的陽光
+    int m_SunCurrency = 50;                   // 目前持有的陽光數量
+
+    // --- UI 與 拖曳系統 ---
+    std::shared_ptr<SeedBank> m_SeedBank;     // 上方的卡槽
+    std::shared_ptr<Util::GameObject> m_DragPreview; // 拖曳時跟隨滑鼠的植物預覽
+    int m_SelectedPlantType = 0;              // 目前選中的植物類型 (0:無, 1:豌豆, 2:向日葵)
+
+    void UpdatePlantActions(); // 植物行為
+    void ValidTask();
 };
 
 #endif
