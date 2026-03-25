@@ -11,8 +11,8 @@ namespace fs = std::filesystem;
 static std::vector<std::string> GetFramesFromFolder(const std::string& folderPath) {
     std::vector<std::string> paths;
     if (!fs::exists(folderPath)) {
-        LOG_ERROR("Folder not found: {}", folderPath);
-        return paths;
+        LOG_ERROR("資料夾路徑不存在: {}", folderPath);
+        return paths; // 回傳空向量
     }
 
     for (const auto& entry : fs::directory_iterator(folderPath)) {
@@ -30,35 +30,39 @@ static std::vector<std::string> GetFramesFromFolder(const std::string& folderPat
     return paths;
 }
 
-// --- Peashooter 實作 (HP: 270, Cost: 100) ---
+// --- Peashooter 實作 ---
 Peashooter::Peashooter(float x, float y)
-    : Plant(GetFramesFromFolder("resources/image/peashooter"), 270, 100) {
+    : Plant({}, 270, 100) {
     m_Transform.translation = {x, y};
     m_ZIndex = 10;
+    auto paths = GetFramesFromFolder("resources/image/peashooter");
+    if (!paths.empty()) {
+        m_Animation = std::make_shared<Util::Animation>(paths, true, 100, true);
+        m_Drawable = m_Animation;
+    }
 }
 
 void Peashooter::Update() {
-    // 使用 GetDeltaTime() (假設回傳秒)
-    m_FireTimer += static_cast<float>(Util::Time::GetDeltaTime());
-
-    if (m_FireTimer >= 1.45f) { // 射速 1.36~1.5s
+    float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
+    m_FireTimer += dt;
+    if (m_FireTimer >= 1.45f) {
         m_ShouldFire = true;
         m_FireTimer = 0.0f;
     }
 }
 
-void Peashooter::Attack() {
-    LOG_DEBUG("Peashooter: *Pew!*");
-    // 具體發射子彈邏輯通常由 App 呼叫此處或判斷 CanFire
-}
+void Peashooter::Attack() { LOG_DEBUG("Peashooter: *Pew!*"); }
 
-// --- Sunflower 實作 (HP: 300, Cost: 50) ---
+// --- Sunflower 實作 ---
 Sunflower::Sunflower(float x, float y)
-    : Plant(GetFramesFromFolder("resources/image/sunflower"), 300, 50) {
+    : Plant({}, 300, 50) {
     m_Transform.translation = {x, y};
     m_ZIndex = 10;
-
-    // 初次生產隨機時間
+    auto paths = GetFramesFromFolder("resources/image/sunflower");
+    if (!paths.empty()) {
+        m_Animation = std::make_shared<Util::Animation>(paths, true, 100, true);
+        m_Drawable = m_Animation;
+    }
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<float> dist(3.0f, 7.5f);
@@ -66,41 +70,57 @@ Sunflower::Sunflower(float x, float y)
 }
 
 void Sunflower::Update() {
-    m_ProductionTimer += static_cast<float>(Util::Time::GetDeltaTime());
-
+    float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
+    m_ProductionTimer += dt;
     if (m_ProductionTimer >= m_NextProductionTime) {
         m_ProducedSun = true;
         m_ProductionTimer = 0.0f;
         m_NextProductionTime = 24.0f;
-        LOG_DEBUG("Sunflower ready to produce sun!");
     }
 }
 
-void Sunflower::Attack() {
-    // 向日葵的 Attack 通常是產陽光
-}
+void Sunflower::Attack() {}
 
-// --- Wallnut 實作 ---
+// --- Wallnut 實作 (修正重點) ---
 Wallnut::Wallnut(float x, float y)
-    : Plant(GetFramesFromFolder("resources/image/wallnut"), 4000, 50) {
-    // ^^^ 這裡會自動呼叫 Plant 的建構子，把路徑、4000HP、50金錢傳進去
+    : Plant({}, 4000, 50) {
     m_Transform.translation = {x, y};
     m_ZIndex = 10;
+
+    // 嘗試多個可能路徑，防止因為資料夾結構不同而崩潰
+    std::vector<std::string> paths = GetFramesFromFolder("resources/image/wallnut/1");
+    if (paths.empty()) {
+        LOG_WARN("嘗試備用路徑: resources/image/wallnut");
+        paths = GetFramesFromFolder("resources/image/wallnut");
+    }
+
+    if (!paths.empty()) {
+        m_Animation = std::make_shared<Util::Animation>(paths, true, 100, true);
+        m_Drawable = m_Animation;
+    } else {
+        LOG_ERROR("Wallnut 找不到任何圖片資源，請檢查 resources/image/wallnut 資料夾！");
+        // 程式不再崩潰，只是會看不見堅果
+    }
 }
 
 void Wallnut::Update() {
-    int hp = GetHP(); // 現在 Plant 有 GetHP 了，不會報錯
+    int hp = GetHP();
+    std::string newPath = "";
 
     if (hp <= 1333 && m_CurrentStage != 3) {
-        auto paths = GetFramesFromFolder("resources/image/wallnut/3");
-        m_Animation = std::make_shared<Util::Animation>(paths, true, 100, true);
-        m_Drawable = m_Animation;
+        newPath = "resources/image/wallnut/3";
         m_CurrentStage = 3;
     }
     else if (hp <= 2666 && hp > 1333 && m_CurrentStage != 2) {
-        auto paths = GetFramesFromFolder("resources/image/wallnut/2");
-        m_Animation = std::make_shared<Util::Animation>(paths, true, 100, true);
-        m_Drawable = m_Animation;
+        newPath = "resources/image/wallnut/2";
         m_CurrentStage = 2;
+    }
+
+    if (!newPath.empty()) {
+        auto paths = GetFramesFromFolder(newPath);
+        if (!paths.empty()) {
+            m_Animation = std::make_shared<Util::Animation>(paths, true, 100, true);
+            m_Drawable = m_Animation;
+        }
     }
 }

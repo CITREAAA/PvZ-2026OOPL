@@ -50,6 +50,7 @@ add_executable(${PROJECT_NAME}
         src/pea.cpp
         include/pea.hpp
         include/seedBank.hpp
+        src/zombie.cpp
 )
 
 if(MSVC)

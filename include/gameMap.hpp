@@ -30,6 +30,13 @@ public:
     std::shared_ptr<Plant> GetPlant(int r, int c);
 
     glm::vec2 CalculateGridCenter(int row, int col);
+
+    void RemovePlant(int r, int c) {
+        if (r >= 0 && r < 5 && c >= 0 && c < 9) {
+            m_Grids[r][c] = nullptr;
+        }
+    }
+
 };
 
 #endif
