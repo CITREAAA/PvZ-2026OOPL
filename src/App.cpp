@@ -29,7 +29,7 @@ void App::Update() {
     float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
     m_SeedBank->UpdateCooldown(dt);
 
-    // --- 1. 輸入處理 (點擊與拖曳) ---
+    // --- 1. 輸入處理 (收集陽光與種植) ---
     if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB)) {
         bool actionHandled = false;
         for (auto it = m_Suns.begin(); it != m_Suns.end(); ) {
@@ -84,6 +84,8 @@ void App::Update() {
     }
 
     // --- 2. 邏輯更新 ---
+
+    // A. 陽光與豌豆子彈
     for (auto& sun : m_Suns) sun->Update();
     for (auto it = m_Peas.begin(); it != m_Peas.end(); ) {
         (*it)->Update();
@@ -102,8 +104,17 @@ void App::Update() {
         } else { ++it; }
     }
 
+    // B. 殭屍邏輯 (包含內部的掉頭更新與啃食)
     for (auto& zombie : m_zombies) {
         zombie->Update();
+
+        // 👉 新增：檢查這隻殭屍是不是該掉頭了，如果是，把頭加進畫面
+        auto droppedHead = zombie->SpawnHead();
+        if (droppedHead) {
+            m_ZombieHeads.push_back(droppedHead);
+            m_Root.AddChild(droppedHead);
+        }
+
         if (zombie->IsDead()) continue;
 
         int r, c;
@@ -119,7 +130,6 @@ void App::Update() {
                 }
             }
         }
-        // 若沒在啃食但狀態是 EATING，切回 WALKING
         if (zombie->GetState() == Zombie::State::EATING) {
             int r2, c2;
             if (!m_Map->GetGridIndex(zombie->GetPosition() + glm::vec2{-25, 0}, r2, c2) || !m_Map->GetPlant(r2, c2)) {
@@ -128,6 +138,20 @@ void App::Update() {
         }
     }
 
+    // 👉 新增：更新掉落的殭屍頭 (簡單的往下掉)
+    for (auto it = m_ZombieHeads.begin(); it != m_ZombieHeads.end(); ) {
+        (*it)->m_Transform.translation.y -= 100.0f * dt;
+
+        // 掉出畫面後移除
+        if ((*it)->m_Transform.translation.y < -800.0f) {
+            m_Root.RemoveChild(*it);
+            it = m_ZombieHeads.erase(it);
+        } else {
+            ++it;
+        }
+    }
+
+    // C. 移除死透的殭屍
     m_zombies.erase(std::remove_if(m_zombies.begin(), m_zombies.end(),
         [this](const std::shared_ptr<Zombie>& z) {
             if (z->CanRemove()) {
@@ -137,17 +161,20 @@ void App::Update() {
             return false;
         }), m_zombies.end());
 
+    // D. 自動生成殭屍
     static float zombieTimer = 0.0f;
     zombieTimer += dt;
     if (zombieTimer > 10.0f) {
         int r = rand() % 5;
         float spawnY = m_Map->CalculateGridCenter(r, 8).y;
-        auto newZ = std::make_shared<Zombie>(650.0f, spawnY);
+        spawnY += 20.0f;
+        auto newZ = std::make_shared<Zombie>(700.0f, spawnY);
         m_zombies.push_back(newZ);
         m_Root.AddChild(newZ);
         zombieTimer = 0.0f;
     }
 
+    // E. 天空陽光生成
     static float skySunTimer = 0.0f;
     skySunTimer += dt;
     if (skySunTimer > 13.0f) {
@@ -161,6 +188,7 @@ void App::Update() {
 
     UpdatePlantActions();
 
+    // --- 3. 渲染與地圖更新 ---
     m_Map->Update();
     m_Root.Update();
     m_SeedBank->SetSunCount(m_SunCurrency);
@@ -176,15 +204,11 @@ void App::Update() {
     if (Util::Input::IsKeyUp(Util::Keycode::ESCAPE) || Util::Input::IfExit()) m_CurrentState = State::END;
 }
 
-// --- 核心修改部分 ---
 void App::UpdatePlantActions() {
-    // 1. 偵測每一排是否有「活著」的殭屍
     bool rowHasZombie[5] = {false, false, false, false, false};
     for (auto& zombie : m_zombies) {
-        // 只有沒死的殭屍才算目標
         if (!zombie->IsDead()) {
             int r, c;
-            // 透過地圖函式取得殭屍所在的排數
             if (m_Map->GetGridIndex(zombie->GetPosition(), r, c)) {
                 if (r >= 0 && r < 5) rowHasZombie[r] = true;
             }
@@ -198,30 +222,24 @@ void App::UpdatePlantActions() {
 
             plant->Update();
 
-            // 向日葵產陽光 (不受殭屍影響)
             auto flower = std::dynamic_pointer_cast<Sunflower>(plant);
             if (flower && flower->CanProduceSun()) {
-                auto s = std::make_shared<Sun>(flower->GetPosition().x,
-                                               flower->GetPosition().y + 50.0f,
-                                               flower->GetPosition().y - 10.0f);
+                auto s = std::make_shared<Sun>(flower->GetPosition().x, flower->GetPosition().y + 50.0f, flower->GetPosition().y - 10.0f);
                 m_Suns.push_back(s);
                 m_Root.AddChild(s);
                 flower->ResetSunFlag();
             }
 
-            // 豌豆射手射擊 (檢查該排有無殭屍)
             auto shooter = std::dynamic_pointer_cast<Peashooter>(plant);
             if (shooter) {
                 if (rowHasZombie[r]) {
                     if (shooter->CanFire()) {
-                        auto p = std::make_shared<Pea>(shooter->GetPosition().x + 30.0f,
-                                                      shooter->GetPosition().y + 20.0f);
+                        auto p = std::make_shared<Pea>(shooter->GetPosition().x + 30.0f, shooter->GetPosition().y + 35.0f);
                         m_Peas.push_back(p);
                         m_Root.AddChild(p);
                         shooter->ResetFireFlag();
                     }
                 } else {
-                    // 如果該排沒殭屍，強行重置發射旗標，確保殭屍死後子彈不會剛好噴出來
                     shooter->ResetFireFlag();
                 }
             }

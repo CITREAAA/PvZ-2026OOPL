@@ -6,12 +6,10 @@
 
 namespace fs = std::filesystem;
 
+// 讓殭屍與頭部共用這個讀取圖片的函式
 static std::vector<std::string> GetZombieFrames(const std::string& folder) {
     std::vector<std::string> paths;
-    if (!fs::exists(folder)) {
-        LOG_ERROR("找不到資料夾: {}", folder);
-        return paths;
-    }
+    if (!fs::exists(folder)) return paths;
     for (const auto& entry : fs::directory_iterator(folder)) {
         if (entry.is_regular_file()) {
             std::string p = entry.path().string();
@@ -23,83 +21,109 @@ static std::vector<std::string> GetZombieFrames(const std::string& folder) {
     return paths;
 }
 
+// ==========================================
+// ZombieHead 實作區域 (頭部物理)
+// ==========================================
+ZombieHead::ZombieHead(float startX, float startY, glm::vec2 initialVelocity)
+    : m_Velocity(initialVelocity) {
+
+    m_Transform.translation = {startX, startY};
+    m_ZIndex = 55; // 讓頭顯示在身體前面一點
+
+    auto frames = GetZombieFrames("resources/image/zombie/normal_zombie/die/ZombieHead");
+    if (!frames.empty()) {
+        SetDrawable(std::make_shared<Util::Animation>(frames, false, 80, true));
+    }
+}
+
+void ZombieHead::Update(float dt) {
+    // 🎯 極限重力：加碼到 3000.0f，讓向下拉扯的力量變得極大
+    m_Velocity.y -= 3000.0f * dt;
+
+    // 物理：根據目前速度更新座標
+    m_Transform.translation += m_Velocity * dt;
+}
+
+// ==========================================
+// Zombie 實作區域 (本體邏輯)
+// ==========================================
 Zombie::Zombie(float x, float y) : GameEntity("", 270) {
     m_Transform.translation = {x, y};
     m_ZIndex = 50;
-    m_AppearanceStage = 1; // 1:正常, 2:斷臂, 3:斷頭
     UpdateAnimation();
 }
 
 void Zombie::Update() {
     float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
 
-    // 如果已經死透了，處理倒地計時並停止邏輯
     if (m_CurrentState == State::DEAD) {
         m_DeathTimer -= dt;
         return;
     }
 
-    // 行走邏輯
     if (m_CurrentState == State::WALKING) {
         m_Transform.translation.x -= m_Speed * dt;
     }
 
-    // --- 關鍵修復：血量階段判定 (只在變化的那一瞬間切換動畫) ---
     if (m_HP <= 0) {
         SetState(State::DEAD);
     }
-    else if (m_HP < 90) {
-        if (m_AppearanceStage != 3) { // 只有從 1或2 變成 3 的瞬間才執行
-            m_AppearanceStage = 3;
-            UpdateAnimation();
-        }
-    }
-    else if (m_HP < 180) {
-        if (m_AppearanceStage != 2) { // 只有從 1 變成 2 的瞬間才執行
-            m_AppearanceStage = 2;
-            UpdateAnimation();
-        }
+    else if (m_HP < 90 && m_AppearanceStage != 3) {
+        m_AppearanceStage = 3;
+        UpdateAnimation();
     }
 }
 
 void Zombie::TakeDamage(int damage) {
-    if (m_CurrentState == State::DEAD) return;
-    m_HP -= damage;
+    if (m_CurrentState != State::DEAD) m_HP -= damage;
 }
 
 void Zombie::SetState(State state) {
-    if (m_CurrentState == state) return; // 避免重複設定相同狀態導致動畫重置
+    if (m_CurrentState == state) return;
     m_CurrentState = state;
+    if (m_CurrentState == State::DEAD) m_DeathTimer = 1.6f;
     UpdateAnimation();
 }
 
 void Zombie::UpdateAnimation() {
-    std::string path = "resources/image/zombie/";
+    std::string basePath = "resources/image/zombie/normal_zombie";
+    std::string path;
     bool loop = true;
 
     if (m_CurrentState == State::DEAD) {
-        path += "zombie_dead/ZombieDie";
-        loop = false; // 死亡動畫播完就停在最後一幀
+        path = basePath + "/die/ZombieDie";
+        loop = false;
         m_ZIndex = 5;
     } else if (m_CurrentState == State::EATING) {
-        path += "zombie_eat";
+        path = basePath + "/eat";
     } else {
-        // WALKING 狀態下的外觀分支
         if (m_AppearanceStage == 3) {
-            path += "zombie_dead/ZombieLostHead"; // 斷頭走
-        } else if (m_AppearanceStage == 2) {
-            path += "zombie_walk_lost_arm";      // 斷臂走
+            path = basePath + "/die/ZombieLostHead";
         } else {
-            path += "zombie_walk";               // 正常走
+            path = basePath;
         }
     }
 
     auto frames = GetZombieFrames(path);
     if (!frames.empty()) {
-        // 建立新的動畫並更換
         m_Animation = std::make_shared<Util::Animation>(frames, loop, 120, true);
         m_Drawable = m_Animation;
-    } else {
-        LOG_ERROR("動畫路徑為空或找不到圖片: {}", path);
     }
+}
+
+std::shared_ptr<ZombieHead> Zombie::SpawnHead() {
+    if (m_AppearanceStage == 3 && !m_HeadDropped) {
+        m_HeadDropped = true;
+
+        float startX = m_Transform.translation.x + 80.0f;
+        float startY = m_Transform.translation.y + 75.0f;
+
+        // 🎯 極限初速度：
+        // X = +40.0f (輕微往右飄出)
+        // Y = -200.0f (給予負數！讓它一出生就是往下砸的狀態)
+        glm::vec2 vel = {40.0f, -200.0f};
+
+        return std::make_shared<ZombieHead>(startX, startY, vel);
+    }
+    return nullptr;
 }
