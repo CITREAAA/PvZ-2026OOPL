@@ -6,8 +6,8 @@
 #include "pea.hpp"
 #include "seedBank.hpp"
 #include "Sun.hpp"
-#include "Zombie.hpp" // 👈 1. 新增：引入殭屍類別 (若檔名是小寫則用 zombie.hpp)
-#include "Plant.hpp"  // 👈 2. 新增：引入植物基類與堅果牆類別
+#include "Zombie.hpp"
+#include "Plant.hpp"
 #include "Util/Renderer.hpp"
 #include <vector>
 #include <memory>
@@ -31,13 +31,21 @@ private:
     State m_CurrentState = State::START;
     Util::Renderer m_Root;
 
+    std::shared_ptr<Util::Image> m_ImgPea;
+    std::shared_ptr<Util::Image> m_ImgSun;
+    std::shared_ptr<Util::Image> m_ImgNut;
+
+    // --- 首頁選單物件 ---
+    std::shared_ptr<Util::GameObject> m_MenuBackground;
+    std::shared_ptr<Util::GameObject> m_StartButton;
+
     // --- 地圖與植物系統 ---
     std::shared_ptr<GameMap> m_Map;
     std::vector<std::shared_ptr<Pea>> m_Peas;
 
     // --- 殭屍系統 ---
-    // 👈 3. 新增：存放畫面上所有殭屍的百寶袋
     std::vector<std::shared_ptr<Zombie>> m_zombies;
+    std::vector<std::shared_ptr<Util::GameObject>> m_ZombieHeads;
 
     // --- 陽光系統 ---
     std::vector<std::shared_ptr<Sun>> m_Suns; // 畫面上的陽光
