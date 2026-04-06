@@ -2,6 +2,9 @@
 #include "plant.hpp"
 #include <iostream>
 
+#include "Util/Logger.hpp"
+#include "Util/Time.hpp"
+
 GameMap::GameMap(const std::string& path) {
     m_Drawable = std::make_shared<Util::Image>(path);
     m_ZIndex = -10;
@@ -45,15 +48,19 @@ bool GameMap::GetGridIndex(glm::vec2 pos, int& row, int& col) {
 }
 
 void GameMap::Update() {
+    float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
+
     for (int i = 0; i < 5; ++i) {
         for (int j = 0; j < 9; ++j) {
             if (m_Grids[i][j] != nullptr) {
-                if (!m_Grids[i][j]->IsAlive()) {
+                if (m_Grids[i][j]->IsDead()) {
+                    LOG_DEBUG("Map: Removing dead plant at {}, {}", i, j);
                     this->RemoveChild(m_Grids[i][j]);
                     m_Grids[i][j] = nullptr;
                     continue;
                 }
-                m_Grids[i][j]->Update();
+
+                m_Grids[i][j]->Update(dt);
             }
         }
     }
@@ -72,4 +79,14 @@ std::shared_ptr<Plant> GameMap::GetPlant(int r, int c) {
         return nullptr;
     }
     return m_Grids[r][c];
+}
+
+void GameMap::RemovePlant(int r, int c) {
+    if (r >= 0 && r < 5 && c >= 0 && c < 9) {
+        if (m_Grids[r][c] != nullptr) {
+            // 🚩 修正 2：手動移除時也要確保從渲染樹拔掉
+            this->RemoveChild(m_Grids[r][c]);
+            m_Grids[r][c] = nullptr;
+        }
+    }
 }

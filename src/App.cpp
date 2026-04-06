@@ -32,9 +32,7 @@ void App::Start() {
     m_SelectLevelBG->SetDrawable(std::make_shared<Util::Image>("resources/image/menu/select.jpg"));
     m_SelectLevelBG->SetZIndex(60);
 
-    // 在 App::Start() 的選關初始化迴圈中修改
     for (int i = 0; i < 10; ++i) {
-        // 1. 建立按鈕圖示 (原有邏輯)
         auto btn = std::make_shared<Util::GameObject>();
         btn->SetDrawable(std::make_shared<Util::Image>("resources/image/menu/level.png"));
         float x = -300.0f + (i % 5) * 150.0f;
@@ -46,10 +44,10 @@ void App::Start() {
         auto txtObj = std::make_shared<Util::GameObject>();
         auto txtDrawable = std::make_shared<Util::Text>(
             "resources/font/impact.ttf", 30, std::to_string(i + 1),
-            Util::Color::FromRGB(0, 0, 0, 0)
+            Util::Color::FromRGB(0, 0, 0, 255) // 修正：RGBA最後一位設為255文字才看得到
         );
         txtObj->SetDrawable(txtDrawable);
-        float xOffset =  7.0f;
+        float xOffset = 7.0f;
         txtObj->m_Transform.translation = {x + xOffset, y - 32.0f};
         txtObj->SetZIndex(71);
 
@@ -63,7 +61,7 @@ void App::Start() {
 
     m_SeedBank = std::make_shared<SeedBank>();
 
-    // 5. 預覽物件
+    // 5. 預覽物件 (大絕招版)
     m_DragPreview = std::make_shared<Util::GameObject>();
     m_DragPreview->SetZIndex(100);
     m_DragPreview->SetVisible(false);
@@ -79,9 +77,8 @@ void App::Update() {
     // ----- [ 狀態 A: 首頁選單 ] -----
     if (m_CurrentState == State::START) {
         if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB)) {
-            // 點擊開始按鈕的範圍
             if (mousePos.x > 50 && mousePos.x < 370 && mousePos.y > 80 && mousePos.y < 180) {
-                m_CurrentState = State::SELECT_LEVEL; // 跳轉到選關
+                m_CurrentState = State::SELECT_LEVEL;
                 LOG_DEBUG("Entering Level Selection.");
             }
         }
@@ -93,13 +90,10 @@ void App::Update() {
     // ----- [ 狀態 B: 選關介面 ] -----
     else if (m_CurrentState == State::SELECT_LEVEL) {
         m_SelectLevelBG->Draw();
-
         for (int i = 0; i < (int)m_LevelButtons.size(); ++i) {
-            // 懸停與點擊判定 (保持原樣)
             if (glm::distance(mousePos, m_LevelButtons[i]->m_Transform.translation) < 60.0f) {
                 m_LevelButtons[i]->m_Transform.scale = {1.1f, 1.1f};
-                m_LevelTexts[i]->m_Transform.scale = {1.1f, 1.1f}; // 文字同步放大
-
+                m_LevelTexts[i]->m_Transform.scale = {1.1f, 1.1f};
                 if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB)) {
                     m_CurrentLevel = i + 1;
                     m_Root.AddChild(m_Map);
@@ -109,10 +103,8 @@ void App::Update() {
                 m_LevelButtons[i]->m_Transform.scale = {1.0f, 1.0f};
                 m_LevelTexts[i]->m_Transform.scale = {1.0f, 1.0f};
             }
-
-            // 繪製按鈕與數字
             m_LevelButtons[i]->Draw();
-            m_LevelTexts[i]->Draw(); // 👉 畫出數字
+            m_LevelTexts[i]->Draw();
         }
     }
 
@@ -126,13 +118,13 @@ void App::Update() {
             if (m_Map->GetGridIndex(mousePos, r, c)) {
                 std::shared_ptr<Plant> p = nullptr;
                 if (m_SelectedPlantType == 1 && m_SunCurrency >= 100) {
-                    p = std::make_shared<Peashooter>(0,0);
+                    p = std::make_shared<Peashooter>(0.0f, 0.0f);
                     if (m_Map->PlacePlant(r, c, p)) m_SunCurrency -= 100; else p = nullptr;
                 } else if (m_SelectedPlantType == 2 && m_SunCurrency >= 50) {
-                    p = std::make_shared<Sunflower>(0,0);
+                    p = std::make_shared<Sunflower>(0.0f, 0.0f);
                     if (m_Map->PlacePlant(r, c, p)) m_SunCurrency -= 50; else p = nullptr;
                 } else if (m_SelectedPlantType == 3 && m_SunCurrency >= 50) {
-                    p = std::make_shared<Wallnut>(0,0);
+                    p = std::make_shared<Wallnut>(0.0f, 0.0f);
                     if (m_Map->PlacePlant(r, c, p)) m_SunCurrency -= 50; else p = nullptr;
                 }
 
@@ -147,8 +139,6 @@ void App::Update() {
         // --- 2. 滑鼠按下：陽光收集 / 抓取卡片 ---
         else if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB)) {
             bool actionHandled = false;
-
-            // 收集陽光
             for (auto it = m_Suns.begin(); it != m_Suns.end(); ) {
                 if ((*it)->IsClicked(mousePos)) {
                     m_SunCurrency += 25;
@@ -159,8 +149,6 @@ void App::Update() {
                     break;
                 } else { ++it; }
             }
-
-            // 抓取卡片
             if (!actionHandled && m_SelectedPlantType == 0) {
                 int type = m_SeedBank->GetSelectedType(mousePos);
                 if (type != 0) {
@@ -174,7 +162,7 @@ void App::Update() {
             }
         }
 
-        // --- 3. 邏輯更新 (子彈、殭屍、產能) ---
+        // --- 3. 邏輯更新 ---
 
         if (m_SelectedPlantType != 0) {
             int r, c;
@@ -186,18 +174,15 @@ void App::Update() {
 
         UpdatePlantActions();
 
-        for (auto& sun : m_Suns) {
-            sun->Update(dt);
-        }
+        // 陽光生存檢查
+        for (auto& sun : m_Suns) sun->Update(dt);
         m_Suns.erase(std::remove_if(m_Suns.begin(), m_Suns.end(),
             [this](const std::shared_ptr<Sun>& s) {
-                if (s->ShouldRemove()) {
-                    m_Root.RemoveChild(s);
-                    return true;
-                }
+                if (s->ShouldRemove()) { m_Root.RemoveChild(s); return true; }
                 return false;
             }), m_Suns.end());
 
+        // 子彈飛行與碰撞
         for (auto it = m_Peas.begin(); it != m_Peas.end(); ) {
             (*it)->Update();
             bool peaHit = false;
@@ -212,6 +197,7 @@ void App::Update() {
             } else { ++it; }
         }
 
+        // 🚩 殭屍與植物互動邏輯
         for (auto& zombie : m_zombies) {
             zombie->Update();
             auto droppedHead = zombie->SpawnHead();
@@ -223,23 +209,33 @@ void App::Update() {
             if (zombie->IsDead()) continue;
 
             int r, c;
+            // 偵測前方格子是否有植物
             if (m_Map->GetGridIndex(zombie->GetPosition() + glm::vec2{-25, 0}, r, c)) {
                 auto plant = m_Map->GetPlant(r, c);
                 if (plant) {
                     zombie->SetState(Zombie::State::EATING);
-                    plant->TakeDamage(static_cast<int>(100 * dt));
-                    if (plant->IsDead()) {
-                        m_Map->RemovePlant(r, c);
-                        m_Root.RemoveChild(plant);
-                        zombie->SetState(Zombie::State::WALKING);
-                    }
+                    plant->TakeDamage(static_cast<int>(200 * dt)); // 提高咬合傷害
                 } else {
+                    // 如果這格沒植物了，且殭屍還在啃，就恢復走路
                     if (zombie->GetState() == Zombie::State::EATING)
                         zombie->SetState(Zombie::State::WALKING);
                 }
             }
         }
 
+        // 🚩 全域死亡植物移除檢查
+        for (int r = 0; r < 5; ++r) {
+            for (int c = 0; c < 9; ++c) {
+                auto p = m_Map->GetPlant(r, c);
+                if (p && p->IsDead()) {
+                    LOG_DEBUG("Plant at {}, {} is dead!", r, c);
+                    m_Root.RemoveChild(p);    // 1. 畫面上弄不見
+                    m_Map->RemovePlant(r, c); // 2. 地圖格清空 (確保下一幀殭屍會變走路)
+                }
+            }
+        }
+
+        // 殭屍頭掉落邏輯
         for (auto it = m_ZombieHeads.begin(); it != m_ZombieHeads.end(); ) {
             (*it)->m_Transform.translation.y -= 100.0f * dt;
             if ((*it)->m_Transform.translation.y < -800.0f) {
@@ -248,13 +244,14 @@ void App::Update() {
             } else { ++it; }
         }
 
+        // 移除死亡殭屍
         m_zombies.erase(std::remove_if(m_zombies.begin(), m_zombies.end(),
             [this](const std::shared_ptr<Zombie>& z) {
                 if (z->CanRemove()) { m_Root.RemoveChild(z); return true; }
                 return false;
             }), m_zombies.end());
 
-        // 依據關卡調整難度 (範例)
+        // 殭屍生成與天空陽光 (依關卡難度)
         static float zombieTimer = 0.0f;
         zombieTimer += dt;
         float spawnRate = std::max(2.0f, 10.0f - m_CurrentLevel * 0.8f);
@@ -272,13 +269,12 @@ void App::Update() {
             float randomX = static_cast<float>(rand() % 611 - 430);
             float targetY = static_cast<float>(rand() % 291 - 140);
             auto skySun = std::make_shared<Sun>(randomX, 320.0f, targetY);
-            m_Suns.push_back(skySun);
-            m_Root.AddChild(skySun);
+            m_Suns.push_back(skySun); m_Root.AddChild(skySun);
             skySunTimer = 0.0f;
         }
 
         // --- 4. 渲染 ---
-        m_Map->Update();
+        m_Map->Update(); // 🚩 裡面也要補 dt，看下面說明
         m_Root.Update();
         m_SeedBank->SetSunCount(m_SunCurrency);
         m_SeedBank->DrawUI();
@@ -288,6 +284,8 @@ void App::Update() {
 }
 
 void App::UpdatePlantActions() {
+    float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
+
     bool rowHasZombie[5] = {false, false, false, false, false};
     for (auto& zombie : m_zombies) {
         if (!zombie->IsDead()) {
@@ -302,15 +300,17 @@ void App::UpdatePlantActions() {
         for (int c = 0; c < 9; ++c) {
             auto plant = m_Map->GetPlant(r, c);
             if (!plant) continue;
-            plant->Update();
 
-            if (auto flower = std::dynamic_pointer_cast<Sunflower>(plant)) {
-                if (flower->CanProduceSun()) {
-                    auto s = std::make_shared<Sun>(flower->GetPosition().x, flower->GetPosition().y + 50.0f, flower->GetPosition().y - 10.0f);
-                    m_Suns.push_back(s); m_Root.AddChild(s); flower->ResetSunFlag();
-                }
+            plant->Update(dt); // 🚩 修正：傳入 dt
+
+            auto flower = std::dynamic_pointer_cast<Sunflower>(plant);
+            if (flower && flower->CanProduceSun()) {
+                auto s = std::make_shared<Sun>(flower->GetPosition().x, flower->GetPosition().y + 50.0f, flower->GetPosition().y - 10.0f);
+                m_Suns.push_back(s); m_Root.AddChild(s); flower->ResetSunFlag();
             }
-            if (auto shooter = std::dynamic_pointer_cast<Peashooter>(plant)) {
+
+            auto shooter = std::dynamic_pointer_cast<Peashooter>(plant);
+            if (shooter) {
                 if (rowHasZombie[r] && shooter->CanFire()) {
                     auto p = std::make_shared<Pea>(shooter->GetPosition().x + 30.0f, shooter->GetPosition().y + 35.0f);
                     m_Peas.push_back(p); m_Root.AddChild(p); shooter->ResetFireFlag();

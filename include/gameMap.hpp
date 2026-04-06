@@ -31,11 +31,7 @@ public:
 
     glm::vec2 CalculateGridCenter(int row, int col);
 
-    void RemovePlant(int r, int c) {
-        if (r >= 0 && r < 5 && c >= 0 && c < 9) {
-            m_Grids[r][c] = nullptr;
-        }
-    }
+    void RemovePlant(int r, int c);
 
 };
 
