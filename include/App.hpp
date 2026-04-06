@@ -9,6 +9,7 @@
 #include "Zombie.hpp"
 #include "Plant.hpp"
 #include "Util/Renderer.hpp"
+#include "Util/GameObject.hpp"
 #include <vector>
 #include <memory>
 
@@ -47,16 +48,19 @@ private:
     std::vector<std::shared_ptr<Zombie>> m_zombies;
     std::vector<std::shared_ptr<Util::GameObject>> m_ZombieHeads;
 
+    // 👉 新增：存放斷掉的殭屍頭
+    std::vector<std::shared_ptr<Util::GameObject>> m_ZombieHeads;
+
     // --- 陽光系統 ---
-    std::vector<std::shared_ptr<Sun>> m_Suns; // 畫面上的陽光
-    int m_SunCurrency = 50;                   // 目前持有的陽光數量
+    std::vector<std::shared_ptr<Sun>> m_Suns;
+    int m_SunCurrency = 50;
 
     // --- UI 與 拖曳系統 ---
-    std::shared_ptr<SeedBank> m_SeedBank;     // 上方的卡槽
-    std::shared_ptr<Util::GameObject> m_DragPreview; // 拖曳時跟隨滑鼠的植物預覽
-    int m_SelectedPlantType = 0;              // 目前選中的類型 (0:無, 1:豌豆, 2:向日葵, 3:堅果牆)
+    std::shared_ptr<SeedBank> m_SeedBank;
+    std::shared_ptr<Util::GameObject> m_DragPreview;
+    int m_SelectedPlantType = 0;
 
-    void UpdatePlantActions(); // 植物行為
+    void UpdatePlantActions();
     void ValidTask();
 };
 
