@@ -10,19 +10,23 @@
 class Sun : public Util::GameObject {
 private:
     float m_TargetY;
-    float m_FallSpeed = 2.0f;
+    float m_FallSpeed = 100.0f;
     bool m_IsCollected = false;
-    bool m_IsFlyingToScore = false;
+    bool m_IsExpired = false;
+    float m_SurvivalTimer = 0.0f;
 
 public:
     Sun(float startX, float startY, float targetY);
 
-    void Update();
+    void Update(float dt);
 
     bool IsClicked(glm::vec2 mousePos);
 
     void Collect() { m_IsCollected = true; }
-    bool ShouldRemove() const { return m_IsCollected; }
+
+    bool ShouldRemove() const { return m_IsCollected || m_IsExpired; }
+
+    bool IsExpired() const { return m_IsExpired; }
 };
 
 #endif

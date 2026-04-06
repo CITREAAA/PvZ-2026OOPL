@@ -17,6 +17,7 @@ class App {
 public:
     enum class State {
         START,
+        SELECT_LEVEL,
         UPDATE,
         END,
     };
@@ -40,15 +41,18 @@ private:
     std::shared_ptr<Util::GameObject> m_MenuBackground;
     std::shared_ptr<Util::GameObject> m_StartButton;
 
+    // --- 關卡選擇物件 ---
+    std::shared_ptr<Util::GameObject> m_SelectLevelBG;
+    std::vector<std::shared_ptr<Util::GameObject>> m_LevelButtons;
+    std::vector<std::shared_ptr<Util::GameObject>> m_LevelTexts;
+    int m_CurrentLevel = 0;
+
     // --- 地圖與植物系統 ---
     std::shared_ptr<GameMap> m_Map;
     std::vector<std::shared_ptr<Pea>> m_Peas;
 
     // --- 殭屍系統 ---
     std::vector<std::shared_ptr<Zombie>> m_zombies;
-    std::vector<std::shared_ptr<Util::GameObject>> m_ZombieHeads;
-
-    // 👉 新增：存放斷掉的殭屍頭
     std::vector<std::shared_ptr<Util::GameObject>> m_ZombieHeads;
 
     // --- 陽光系統 ---
@@ -59,6 +63,7 @@ private:
     std::shared_ptr<SeedBank> m_SeedBank;
     std::shared_ptr<Util::GameObject> m_DragPreview;
     int m_SelectedPlantType = 0;
+
 
     void UpdatePlantActions();
     void ValidTask();

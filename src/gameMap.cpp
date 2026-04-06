@@ -60,7 +60,7 @@ void GameMap::Update() {
 }
 
 glm::vec2 GameMap::CalculateGridCenter(int row, int col) {
-    // 這裡使用你在 .hpp 裡定義的成員變數
+
     float centerX = m_OffsetX + (float)col * m_GridW + (m_GridW / 2.0f);
     float centerY = m_OffsetY - (float)row * m_GridH - (m_GridH / 2.0f);
 

@@ -3,6 +3,7 @@
 #include "seedBank.hpp"
 #include "Zombie.hpp"
 #include "Plant.hpp"
+#include "Sun.hpp"
 #include "Util/Time.hpp"
 #include "Util/Image.hpp"
 #include "Util/Input.hpp"
@@ -11,12 +12,12 @@
 #include <algorithm>
 
 void App::Start() {
-    // 1. 你的預載入圖片 (確保 App.hpp 裡有這些成員變數)
+    // 1. 預載入圖片到成員變數
     m_ImgPea = std::make_shared<Util::Image>("resources/image/peashooter/peashooter_1.png");
     m_ImgSun = std::make_shared<Util::Image>("resources/image/sunflower/1.png");
     m_ImgNut = std::make_shared<Util::Image>("resources/image/wallnut/1.png");
 
-    // 2. 首頁選單
+    // 2. 首頁選單初始化
     m_MenuBackground = std::make_shared<Util::GameObject>();
     m_MenuBackground->SetDrawable(std::make_shared<Util::Image>("resources/image/menu/menu.png"));
     m_MenuBackground->SetZIndex(10);
@@ -26,14 +27,43 @@ void App::Start() {
     m_StartButton->m_Transform.translation = {210.0f, 130.0f};
     m_StartButton->SetZIndex(20);
 
-    // 3. 遊戲地圖
+    // 3. 選關介面初始化
+    m_SelectLevelBG = std::make_shared<Util::GameObject>();
+    m_SelectLevelBG->SetDrawable(std::make_shared<Util::Image>("resources/image/menu/select.jpg"));
+    m_SelectLevelBG->SetZIndex(60);
+
+    // 在 App::Start() 的選關初始化迴圈中修改
+    for (int i = 0; i < 10; ++i) {
+        // 1. 建立按鈕圖示 (原有邏輯)
+        auto btn = std::make_shared<Util::GameObject>();
+        btn->SetDrawable(std::make_shared<Util::Image>("resources/image/menu/level.png"));
+        float x = -300.0f + (i % 5) * 150.0f;
+        float y = (i < 5) ? 100.0f : -50.0f;
+        btn->m_Transform.translation = {x, y};
+        btn->SetZIndex(70);
+        m_LevelButtons.push_back(btn);
+
+        auto txtObj = std::make_shared<Util::GameObject>();
+        auto txtDrawable = std::make_shared<Util::Text>(
+            "resources/font/impact.ttf", 30, std::to_string(i + 1),
+            Util::Color::FromRGB(0, 0, 0, 0)
+        );
+        txtObj->SetDrawable(txtDrawable);
+        float xOffset =  7.0f;
+        txtObj->m_Transform.translation = {x + xOffset, y - 32.0f};
+        txtObj->SetZIndex(71);
+
+        m_LevelTexts.push_back(txtObj);
+    }
+
+    // 4. 遊戲地圖與基礎物件
     m_Map = std::make_shared<GameMap>("resources/image/map.jpg");
     m_Map->m_Transform.scale = {2.0f, 2.0f};
     m_Map->SetZIndex(0);
 
     m_SeedBank = std::make_shared<SeedBank>();
 
-    // 4. 你的預覽物件 (大絕招版)
+    // 5. 預覽物件
     m_DragPreview = std::make_shared<Util::GameObject>();
     m_DragPreview->SetZIndex(100);
     m_DragPreview->SetVisible(false);
@@ -49,16 +79,44 @@ void App::Update() {
     // ----- [ 狀態 A: 首頁選單 ] -----
     if (m_CurrentState == State::START) {
         if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB)) {
+            // 點擊開始按鈕的範圍
             if (mousePos.x > 50 && mousePos.x < 370 && mousePos.y > 80 && mousePos.y < 180) {
-                m_Root.AddChild(m_Map);
-                m_CurrentState = State::UPDATE;
+                m_CurrentState = State::SELECT_LEVEL; // 跳轉到選關
+                LOG_DEBUG("Entering Level Selection.");
             }
         }
         m_MenuBackground->Draw();
         m_StartButton->Draw();
         m_Root.Update();
     }
-    // ----- [ 狀態 B: 遊戲進行中 ] -----
+
+    // ----- [ 狀態 B: 選關介面 ] -----
+    else if (m_CurrentState == State::SELECT_LEVEL) {
+        m_SelectLevelBG->Draw();
+
+        for (int i = 0; i < (int)m_LevelButtons.size(); ++i) {
+            // 懸停與點擊判定 (保持原樣)
+            if (glm::distance(mousePos, m_LevelButtons[i]->m_Transform.translation) < 60.0f) {
+                m_LevelButtons[i]->m_Transform.scale = {1.1f, 1.1f};
+                m_LevelTexts[i]->m_Transform.scale = {1.1f, 1.1f}; // 文字同步放大
+
+                if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB)) {
+                    m_CurrentLevel = i + 1;
+                    m_Root.AddChild(m_Map);
+                    m_CurrentState = State::UPDATE;
+                }
+            } else {
+                m_LevelButtons[i]->m_Transform.scale = {1.0f, 1.0f};
+                m_LevelTexts[i]->m_Transform.scale = {1.0f, 1.0f};
+            }
+
+            // 繪製按鈕與數字
+            m_LevelButtons[i]->Draw();
+            m_LevelTexts[i]->Draw(); // 👉 畫出數字
+        }
+    }
+
+    // ----- [ 狀態 C: 遊戲進行中 ] -----
     else if (m_CurrentState == State::UPDATE) {
         m_SeedBank->UpdateCooldown(dt);
 
@@ -90,7 +148,7 @@ void App::Update() {
         else if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB)) {
             bool actionHandled = false;
 
-            // 收集陽光 (天空或植物產生的都能點)
+            // 收集陽光
             for (auto it = m_Suns.begin(); it != m_Suns.end(); ) {
                 if ((*it)->IsClicked(mousePos)) {
                     m_SunCurrency += 25;
@@ -116,7 +174,7 @@ void App::Update() {
             }
         }
 
-        // --- 3. 邏輯更新 (預覽圖位置、子彈、殭屍、產能) ---
+        // --- 3. 邏輯更新 (子彈、殭屍、產能) ---
 
         if (m_SelectedPlantType != 0) {
             int r, c;
@@ -128,9 +186,18 @@ void App::Update() {
 
         UpdatePlantActions();
 
-        for (auto& sun : m_Suns) sun->Update();
+        for (auto& sun : m_Suns) {
+            sun->Update(dt);
+        }
+        m_Suns.erase(std::remove_if(m_Suns.begin(), m_Suns.end(),
+            [this](const std::shared_ptr<Sun>& s) {
+                if (s->ShouldRemove()) {
+                    m_Root.RemoveChild(s);
+                    return true;
+                }
+                return false;
+            }), m_Suns.end());
 
-        // 子彈飛行與碰撞
         for (auto it = m_Peas.begin(); it != m_Peas.end(); ) {
             (*it)->Update();
             bool peaHit = false;
@@ -145,11 +212,8 @@ void App::Update() {
             } else { ++it; }
         }
 
-        // 殭屍行為 (加入組員的噴頭邏輯)
         for (auto& zombie : m_zombies) {
             zombie->Update();
-
-            // 👉 縫合組員功能：檢查噴頭
             auto droppedHead = zombie->SpawnHead();
             if (droppedHead) {
                 m_ZombieHeads.push_back(droppedHead);
@@ -176,7 +240,6 @@ void App::Update() {
             }
         }
 
-        // 👉 縫合組員功能：掉落的頭往下掉
         for (auto it = m_ZombieHeads.begin(); it != m_ZombieHeads.end(); ) {
             (*it)->m_Transform.translation.y -= 100.0f * dt;
             if ((*it)->m_Transform.translation.y < -800.0f) {
@@ -185,17 +248,17 @@ void App::Update() {
             } else { ++it; }
         }
 
-        // 移除死透的殭屍
         m_zombies.erase(std::remove_if(m_zombies.begin(), m_zombies.end(),
             [this](const std::shared_ptr<Zombie>& z) {
                 if (z->CanRemove()) { m_Root.RemoveChild(z); return true; }
                 return false;
             }), m_zombies.end());
 
-        // 自動生成殭屍
+        // 依據關卡調整難度 (範例)
         static float zombieTimer = 0.0f;
         zombieTimer += dt;
-        if (zombieTimer > 10.0f) {
+        float spawnRate = std::max(2.0f, 10.0f - m_CurrentLevel * 0.8f);
+        if (zombieTimer > spawnRate) {
             int r = rand() % 5;
             float spawnY = m_Map->CalculateGridCenter(r, 8).y + 20.0f;
             auto newZ = std::make_shared<Zombie>(700.0f, spawnY);
@@ -203,7 +266,6 @@ void App::Update() {
             zombieTimer = 0.0f;
         }
 
-        // 👉 縫合組員功能：天空陽光生成
         static float skySunTimer = 0.0f;
         skySunTimer += dt;
         if (skySunTimer > 13.0f) {
