@@ -13,16 +13,25 @@ static std::vector<std::string> GetFramesFromFolder(const std::string& folderPat
 
     for (const auto& entry : fs::directory_iterator(folderPath)) {
         if (entry.is_regular_file()) {
-            std::string ext = entry.path().extension().string();
-            std::transform(ext.begin(), ext.end(), ext.begin(), ::tolower);
-            if (ext == ".png" || ext == ".jpg" || ext == ".jpeg") {
-                std::string p = entry.path().string();
-                std::replace(p.begin(), p.end(), '\\', '/');
-                paths.push_back(p);
-            }
+            std::string p = entry.path().string();
+            std::replace(p.begin(), p.end(), '\\', '/');
+            paths.push_back(p);
         }
     }
-    std::sort(paths.begin(), paths.end());
+
+    // 🚩 修正：最簡單也最穩定的數字排序邏輯
+    std::sort(paths.begin(), paths.end(), [](const std::string& a, const std::string& b) {
+        auto get_num = [](const std::string& s) {
+            std::string stem = fs::path(s).stem().string();
+            // 找尋檔名中最後一串連續數字
+            size_t last_num = stem.find_last_of("0123456789");
+            if (last_num == std::string::npos) return 0;
+            size_t first_num = stem.find_last_not_of("0123456789", last_num);
+            if (first_num == std::string::npos) return std::stoi(stem.substr(0, last_num + 1));
+            return std::stoi(stem.substr(first_num + 1, last_num - first_num));
+        };
+        return get_num(a) < get_num(b);
+    });
     return paths;
 }
 
@@ -95,7 +104,7 @@ void Wallnut::Update(float dt) {
     if (!newPath.empty()) {
         auto paths = GetFramesFromFolder(newPath);
         if (!paths.empty()) {
-            m_Animation = std::make_shared<Util::Animation>(paths, true, 100, true);
+            m_Animation = std::make_shared<Util::Animation>(paths, true, 150, true);
             m_Drawable = m_Animation;
         }
     }

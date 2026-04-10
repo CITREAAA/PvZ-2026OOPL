@@ -8,7 +8,7 @@ Pea::Pea(float x, float y) {
     m_Transform.scale = {1.0f, 1.0f};
 }
 
-void Pea::Update() {
+void Pea::Update(float dt) {
     float speed = 400.0f;
     m_Transform.translation.x += speed * static_cast<float>(Util::Time::GetDeltaTime());
 }

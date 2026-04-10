@@ -9,44 +9,63 @@
 #include <string>
 #include <glm/vec2.hpp>
 
+// ==========================================
+// 獨立的頭部物理物件
+// ==========================================
 class ZombieHead : public Util::GameObject {
 public:
-    ZombieHead(float startX, float startY, glm::vec2 initialVelocity);
+    ZombieHead(float startX, float startY, float groundY);
     void Update(float dt);
-    bool CanRemove() const { return m_Transform.translation.y < -300.0f; }
+    bool CanRemove() const { return m_DisappearTimer <= 0.0f; }
+
 private:
     glm::vec2 m_Velocity;
+    float m_GroundY;
+    bool m_OnGround = false;
+    float m_DisappearTimer = 1.0f;
 };
 
+// ==========================================
+// 殭屍本體物件
+// ==========================================
 class Zombie : public GameEntity {
 public:
-    enum class State { WALKING, EATING, DEAD };
+    enum class State { WALKING, EATING, DYING, DEAD };
+    enum class Type { NORMAL, CONEHEAD }; // 🚩 新增殭屍種類
 
-    Zombie(float x, float y);
-
-    // 🚩 修正：這裡必須接收 float dt 參數
-    void Update(float dt);
-
-    // 🚩 修正：為了符合基類 GameEntity 的要求，可以保留一個空的 Update 覆寫
-    void Update() override {}
+    // 🚩 建構子加入種類參數，預設為普通殭屍
+    Zombie(float x, float y, Type type = Type::NORMAL);
 
     void TakeDamage(int damage);
-    bool IsDead() const { return m_HP <= 0; }
+    void Update(float dt);
+
+    bool IsDead() const { return m_CurrentState == State::DEAD; }
+    bool IsDying() const { return m_CurrentState == State::DYING; }
+
     void SetState(State state);
     State GetState() const { return m_CurrentState; }
     glm::vec2 GetPosition() const { return m_Transform.translation; }
+
     bool CanRemove() const { return m_CurrentState == State::DEAD && m_DeathTimer <= 0.0f; }
+
     std::shared_ptr<ZombieHead> SpawnHead();
 
 private:
-    int m_HP = 270;
+    Type m_Type;             // 殭屍種類
+    float m_ArmorHP = 0.0f;  // 裝甲生命值 (三角錐 370)
+    float m_HP = 270.0f;     // 本體生命值 (普通殭屍 270)
     float m_Speed = 14.4f;
+
     float m_DeathTimer = 0.0f;
+
     State m_CurrentState = State::WALKING;
-    int m_AppearanceStage = 1;
-    bool m_HeadDropped = false;
+
+    bool m_IsLostArm = false;
+    bool m_IsDecapitated = false;
+    bool m_HeadHandedOut = false;
+
     std::shared_ptr<Util::Animation> m_Animation;
     void UpdateAnimation();
 };
 
-#endif
+#endif // ZOMBIE_HPP

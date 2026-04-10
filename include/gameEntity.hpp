@@ -17,7 +17,7 @@ public:
         }
     }
 
-    virtual void Update() = 0;
+    virtual void Update(float dt) = 0;
     
     void TakeDamage(int damage) { hp -= damage; }
     bool IsAlive() const { return hp > 0; }

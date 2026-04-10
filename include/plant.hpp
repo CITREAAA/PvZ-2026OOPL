@@ -25,7 +25,6 @@ public:
     void TakeDamage(int damage) { m_HP -= damage; }
     bool IsDead() const { return m_HP <= 0; }
 
-    void Update() override {} // 滿足基類要求
     virtual void Update(float dt) = 0;
 };
 

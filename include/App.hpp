@@ -10,6 +10,8 @@
 #include "Plant.hpp"
 #include "Util/Renderer.hpp"
 #include "Util/GameObject.hpp"
+#include "Util/Image.hpp"
+#include "Util/Text.hpp"
 #include <vector>
 #include <memory>
 
