@@ -19,6 +19,8 @@ public:
         START,
         SELECT_LEVEL,
         UPDATE,
+        VICTORY,
+        DEFEAT,
         END,
     };
 
@@ -53,7 +55,7 @@ private:
 
     // --- 殭屍系統 ---
     std::vector<std::shared_ptr<Zombie>> m_zombies;
-    std::vector<std::shared_ptr<Util::GameObject>> m_ZombieHeads;
+    std::vector<std::shared_ptr<ZombieHead>> m_ZombieHeads;
 
     // --- 陽光系統 ---
     std::vector<std::shared_ptr<Sun>> m_Suns;
@@ -64,7 +66,9 @@ private:
     std::shared_ptr<Util::GameObject> m_DragPreview;
     int m_SelectedPlantType = 0;
 
+    std::shared_ptr<Util::GameObject> m_DefeatScreen;
 
+    void ResetGame();
     void UpdatePlantActions();
     void ValidTask();
 };

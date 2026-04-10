@@ -11,8 +11,10 @@ protected:
 
 public:
     GameEntity(const std::string& imagePath, int h) : hp(h) {
-        m_Image = std::make_shared<Util::Image>(imagePath);
-        m_Drawable = m_Image;
+        if (!imagePath.empty()) {
+            m_Image = std::make_shared<Util::Image>(imagePath);
+            m_Drawable = m_Image;
+        }
     }
 
     virtual void Update() = 0;

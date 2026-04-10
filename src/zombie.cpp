@@ -6,7 +6,6 @@
 
 namespace fs = std::filesystem;
 
-// 讓殭屍與頭部共用這個讀取圖片的函式
 static std::vector<std::string> GetZombieFrames(const std::string& folder) {
     std::vector<std::string> paths;
     if (!fs::exists(folder)) return paths;
@@ -21,15 +20,11 @@ static std::vector<std::string> GetZombieFrames(const std::string& folder) {
     return paths;
 }
 
-// ==========================================
-// ZombieHead 實作區域 (頭部物理)
-// ==========================================
+// --- ZombieHead ---
 ZombieHead::ZombieHead(float startX, float startY, glm::vec2 initialVelocity)
     : m_Velocity(initialVelocity) {
-
     m_Transform.translation = {startX, startY};
-    m_ZIndex = 55; // 讓頭顯示在身體前面一點
-
+    m_ZIndex = 55;
     auto frames = GetZombieFrames("resources/image/zombie/normal_zombie/die/ZombieHead");
     if (!frames.empty()) {
         SetDrawable(std::make_shared<Util::Animation>(frames, false, 80, true));
@@ -37,27 +32,21 @@ ZombieHead::ZombieHead(float startX, float startY, glm::vec2 initialVelocity)
 }
 
 void ZombieHead::Update(float dt) {
-    // 🎯 極限重力：加碼到 3000.0f，讓向下拉扯的力量變得極大
     m_Velocity.y -= 3000.0f * dt;
-
-    // 物理：根據目前速度更新座標
     m_Transform.translation += m_Velocity * dt;
 }
 
-// ==========================================
-// Zombie 實作區域 (本體邏輯)
-// ==========================================
+// --- Zombie ---
 Zombie::Zombie(float x, float y) : GameEntity("", 270) {
     m_Transform.translation = {x, y};
     m_ZIndex = 50;
     UpdateAnimation();
 }
 
-void Zombie::Update() {
-    float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
-
+// 🚩 修正：加上 float dt，並移除內部的 dt 宣告
+void Zombie::Update(float dt) {
     if (m_CurrentState == State::DEAD) {
-        m_DeathTimer -= dt;
+        if (m_DeathTimer > 0) m_DeathTimer -= dt;
         return;
     }
 
@@ -97,11 +86,7 @@ void Zombie::UpdateAnimation() {
     } else if (m_CurrentState == State::EATING) {
         path = basePath + "/eat";
     } else {
-        if (m_AppearanceStage == 3) {
-            path = basePath + "/die/ZombieLostHead";
-        } else {
-            path = basePath;
-        }
+        path = (m_AppearanceStage == 3) ? basePath + "/die/ZombieLostHead" : basePath;
     }
 
     auto frames = GetZombieFrames(path);
@@ -114,15 +99,9 @@ void Zombie::UpdateAnimation() {
 std::shared_ptr<ZombieHead> Zombie::SpawnHead() {
     if (m_AppearanceStage == 3 && !m_HeadDropped) {
         m_HeadDropped = true;
-
         float startX = m_Transform.translation.x + 80.0f;
         float startY = m_Transform.translation.y + 75.0f;
-
-        // 🎯 極限初速度：
-        // X = +40.0f (輕微往右飄出)
-        // Y = -200.0f (給予負數！讓它一出生就是往下砸的狀態)
         glm::vec2 vel = {40.0f, -200.0f};
-
         return std::make_shared<ZombieHead>(startX, startY, vel);
     }
     return nullptr;
