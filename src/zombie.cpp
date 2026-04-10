@@ -6,7 +6,6 @@
 
 namespace fs = std::filesystem;
 
-// 讓殭屍與頭部共用這個讀取圖片的函式
 static std::vector<std::string> GetZombieFrames(const std::string& folder) {
     std::vector<std::string> paths;
     if (!fs::exists(folder)) return paths;
@@ -22,34 +21,50 @@ static std::vector<std::string> GetZombieFrames(const std::string& folder) {
 }
 
 // ==========================================
-// ZombieHead 實作區域 (頭部物理)
+// ZombieHead 實作 (保持不變)
 // ==========================================
-ZombieHead::ZombieHead(float startX, float startY, glm::vec2 initialVelocity)
-    : m_Velocity(initialVelocity) {
-
+ZombieHead::ZombieHead(float startX, float startY, float groundY) : m_Velocity({40.0f, 150.0f}) {
     m_Transform.translation = {startX, startY};
-    m_ZIndex = 55; // 讓頭顯示在身體前面一點
+    m_ZIndex = 55;
+    m_GroundY = groundY;
 
-    auto frames = GetZombieFrames("resources/image/zombie/normal_zombie/die/ZombieHead");
+    auto frames = GetZombieFrames("C:/Users/YILI_Ume/Desktop/PvZ-2026OOPL/resources/image/zombie/normal_zombie/die/ZombieHead");
     if (!frames.empty()) {
         SetDrawable(std::make_shared<Util::Animation>(frames, false, 80, true));
     }
 }
 
 void ZombieHead::Update(float dt) {
-    // 🎯 極限重力：加碼到 3000.0f，讓向下拉扯的力量變得極大
-    m_Velocity.y -= 3000.0f * dt;
-
-    // 物理：根據目前速度更新座標
-    m_Transform.translation += m_Velocity * dt;
+    if (!m_OnGround) {
+        m_Velocity.y -= 800.0f * dt;
+        m_Transform.translation += m_Velocity * dt;
+        if (m_Transform.translation.y <= m_GroundY) {
+            m_Transform.translation.y = m_GroundY;
+            m_Velocity.y = -m_Velocity.y * 0.3f;
+            m_Velocity.x *= 0.6f;
+            if (m_Velocity.y < 30.0f) m_OnGround = true;
+        }
+    } else {
+        m_Velocity.x *= std::max(0.0f, 1.0f - 5.0f * dt);
+        m_Transform.translation.x += m_Velocity.x * dt;
+        m_DisappearTimer -= dt;
+    }
 }
 
 // ==========================================
-// Zombie 實作區域 (本體邏輯)
+// Zombie 實作
 // ==========================================
-Zombie::Zombie(float x, float y) : GameEntity("", 270) {
+Zombie::Zombie(float x, float y, Type type) : GameEntity("", 270), m_Type(type) {
     m_Transform.translation = {x, y};
     m_ZIndex = 50;
+
+    // 🚩 設定裝甲血量
+    if (m_Type == Type::CONEHEAD) {
+        m_ArmorHP = 370.0f; // 三角錐有 370 點血量
+    } else {
+        m_ArmorHP = 0.0f;   // 普通殭屍沒裝甲
+    }
+
     UpdateAnimation();
 }
 
@@ -61,69 +76,131 @@ void Zombie::Update() {
         return;
     }
 
-    if (m_CurrentState == State::WALKING) {
-        m_Transform.translation.x -= m_Speed * dt;
+    if (m_CurrentState == State::DYING) {
+        m_HP -= 60.0f * dt;
+        if (m_HP <= 0.0f) {
+            m_HP = 0.0f;
+            SetState(State::DEAD);
+            return;
+        }
     }
 
-    if (m_HP <= 0) {
-        SetState(State::DEAD);
-    }
-    else if (m_HP < 90 && m_AppearanceStage != 3) {
-        m_AppearanceStage = 3;
-        UpdateAnimation();
+    if (m_CurrentState == State::WALKING || m_CurrentState == State::DYING) {
+        m_Transform.translation.x -= m_Speed * dt;
     }
 }
 
 void Zombie::TakeDamage(int damage) {
-    if (m_CurrentState != State::DEAD) m_HP -= damage;
+    if (m_CurrentState == State::DEAD) return;
+
+    float dmg = static_cast<float>(damage);
+
+    // 🚩 1. 先扣除裝甲血量 (防具判定)
+    if (m_ArmorHP > 0.0f) {
+        m_ArmorHP -= dmg;
+        if (m_ArmorHP <= 0.0f) {
+            dmg = -m_ArmorHP; // 溢出的傷害由本體吸收
+            m_ArmorHP = 0.0f;
+            m_Type = Type::NORMAL; // 裝甲破碎，變回普通殭屍
+            UpdateAnimation();     // 重新載入無頭盔的動畫
+        } else {
+            dmg = 0.0f; // 傷害被裝甲完全吸收
+        }
+    }
+
+    // 🚩 2. 扣除本體血量
+    if (dmg > 0.0f) {
+        m_HP -= dmg;
+
+        if (m_HP < 180.0f && !m_IsLostArm) {
+            m_IsLostArm = true;
+            // 可以在此加入斷臂圖片切換邏輯
+        }
+
+        if (m_HP <= 0.0f) {
+            m_HP = 0.0f;
+            SetState(State::DEAD);
+        } else if (m_HP < 90.0f && !m_IsDecapitated) {
+            m_IsDecapitated = true;
+            SetState(State::DYING);
+        }
+    }
 }
 
 void Zombie::SetState(State state) {
+    if (m_CurrentState == State::DYING || m_CurrentState == State::DEAD) {
+        if (state == State::EATING) return;
+    }
+
     if (m_CurrentState == state) return;
     m_CurrentState = state;
-    if (m_CurrentState == State::DEAD) m_DeathTimer = 1.6f;
     UpdateAnimation();
 }
 
 void Zombie::UpdateAnimation() {
-    std::string basePath = "resources/image/zombie/normal_zombie";
     std::string path;
-    bool loop = true;
+    int interval = 120;
 
+    // 1. 徹底死亡
     if (m_CurrentState == State::DEAD) {
-        path = basePath + "/die/ZombieDie";
-        loop = false;
-        m_ZIndex = 5;
-    } else if (m_CurrentState == State::EATING) {
-        path = basePath + "/eat";
-    } else {
-        if (m_AppearanceStage == 3) {
-            path = basePath + "/die/ZombieLostHead";
+        path = "C:/Users/YILI_Ume/Desktop/PvZ-2026OOPL/resources/image/zombie/normal_zombie/die/ZombieDie";
+        interval = 160;
+        // 🚩 絕對不改 m_ZIndex，維持 50，避免渲染樹 Bug 導致隱形
+    }
+    // 2. 垂死 (斷頭走路)
+    else if (m_CurrentState == State::DYING) {
+        path = "C:/Users/YILI_Ume/Desktop/PvZ-2026OOPL/resources/image/zombie/normal_zombie/die/ZombieLostHead";
+    }
+    // 3. 正常與進食 (判斷種類)
+    else {
+        if (m_Type == Type::CONEHEAD) {
+            if (m_CurrentState == State::EATING) {
+                path = "C:/Users/YILI_Ume/Desktop/PvZ-2026OOPL/resources/image/zombie/conehead_zombie/eat";
+            } else {
+                path = "C:/Users/YILI_Ume/Desktop/PvZ-2026OOPL/resources/image/zombie/conehead_zombie";
+            }
         } else {
-            path = basePath;
+            if (m_CurrentState == State::EATING) {
+                path = "C:/Users/YILI_Ume/Desktop/PvZ-2026OOPL/resources/image/zombie/normal_zombie/eat";
+            } else {
+                path = "C:/Users/YILI_Ume/Desktop/PvZ-2026OOPL/resources/image/zombie/normal_zombie";
+            }
         }
     }
 
     auto frames = GetZombieFrames(path);
-    if (!frames.empty()) {
-        m_Animation = std::make_shared<Util::Animation>(frames, loop, 120, true);
-        m_Drawable = m_Animation;
+
+    // 🚩 終極防呆：如果資料夾沒圖片或路徑錯了，馬上印出超大警告！
+    if (frames.empty()) {
+        LOG_ERROR("===========================================");
+        LOG_ERROR("【嚴重錯誤】找不到圖片！路徑：{}", path);
+        LOG_ERROR("請檢查資料夾名稱是否拼錯，或裡面是不是空的！");
+        LOG_ERROR("===========================================");
+
+        // 給一個保底時間，避免瞬間當機或蒸發
+        if (m_CurrentState == State::DEAD) m_DeathTimer = 1.0f;
+        return;
+    }
+
+    // 🚩 終極破解法：第2和第4個參數全部給 true！(強制播放 + 強制循環)
+    // 因為 m_DeathTimer 時間一到 App.cpp 就會把它刪掉，所以就算設循環也只會播一次！
+    m_Animation = std::make_shared<Util::Animation>(frames, true, interval, true);
+    m_Drawable = m_Animation;
+
+    // 精確計算：圖片數量 * 播放間隔 = 剛好播完一輪的時間
+    if (m_CurrentState == State::DEAD) {
+        m_DeathTimer = (frames.size() * interval) / 1000.0f;
+        LOG_DEBUG("【成功】載入死亡動畫，共 {} 張圖片，預計 {} 秒後刪除殭屍", frames.size(), m_DeathTimer);
     }
 }
 
 std::shared_ptr<ZombieHead> Zombie::SpawnHead() {
-    if (m_AppearanceStage == 3 && !m_HeadDropped) {
-        m_HeadDropped = true;
-
-        float startX = m_Transform.translation.x + 80.0f;
+    if (m_IsDecapitated && !m_HeadHandedOut) {
+        m_HeadHandedOut = true;
+        float startX = m_Transform.translation.x + 10.0f;
         float startY = m_Transform.translation.y + 75.0f;
-
-        // 🎯 極限初速度：
-        // X = +40.0f (輕微往右飄出)
-        // Y = -200.0f (給予負數！讓它一出生就是往下砸的狀態)
-        glm::vec2 vel = {40.0f, -200.0f};
-
-        return std::make_shared<ZombieHead>(startX, startY, vel);
+        float groundY = m_Transform.translation.y - 65.0f;
+        return std::make_shared<ZombieHead>(startX, startY, groundY);
     }
     return nullptr;
 }

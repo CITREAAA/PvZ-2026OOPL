@@ -32,7 +32,7 @@ Peashooter::Peashooter(float x, float y) : Plant({}, 270, 100) {
     m_ZIndex = 10;
     auto paths = GetFramesFromFolder("resources/image/peashooter");
     if (!paths.empty()) {
-        m_Animation = std::make_shared<Util::Animation>(paths, true, 100, true);
+        m_Animation = std::make_shared<Util::Animation>(paths, true, 150, true);
         m_Drawable = m_Animation;
     }
 }
@@ -53,7 +53,7 @@ Sunflower::Sunflower(float x, float y) : Plant({}, 300, 50) {
     m_ZIndex = 10;
     auto paths = GetFramesFromFolder("resources/image/sunflower");
     if (!paths.empty()) {
-        m_Animation = std::make_shared<Util::Animation>(paths, true, 100, true);
+        m_Animation = std::make_shared<Util::Animation>(paths, true, 150, true);
         m_Drawable = m_Animation;
     }
     m_NextProductionTime = 5.0f; // 初始產出時間
@@ -74,7 +74,7 @@ Wallnut::Wallnut(float x, float y) : Plant({}, 4000, 50) {
     m_ZIndex = 10;
     auto paths = GetFramesFromFolder("resources/image/wallnut");
     if (!paths.empty()) {
-        m_Animation = std::make_shared<Util::Animation>(paths, true, 100, true);
+        m_Animation = std::make_shared<Util::Animation>(paths, true, 150, true);
         m_Drawable = m_Animation;
     }
 }
@@ -95,7 +95,7 @@ void Wallnut::Update(float dt) {
     if (!newPath.empty()) {
         auto paths = GetFramesFromFolder(newPath);
         if (!paths.empty()) {
-            m_Animation = std::make_shared<Util::Animation>(paths, true, 100, true);
+            m_Animation = std::make_shared<Util::Animation>(paths, true, 150, true);
             m_Drawable = m_Animation;
         }
     }

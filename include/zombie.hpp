@@ -14,14 +14,15 @@
 // ==========================================
 class ZombieHead : public Util::GameObject {
 public:
-    ZombieHead(float startX, float startY, glm::vec2 initialVelocity);
+    ZombieHead(float startX, float startY, float groundY);
     void Update(float dt);
-
-    // 掉出畫面下方後判定移除
-    bool CanRemove() const { return m_Transform.translation.y < -300.0f; }
+    bool CanRemove() const { return m_DisappearTimer <= 0.0f; }
 
 private:
     glm::vec2 m_Velocity;
+    float m_GroundY;
+    bool m_OnGround = false;
+    float m_DisappearTimer = 2.0f;
 };
 
 // ==========================================
@@ -29,34 +30,42 @@ private:
 // ==========================================
 class Zombie : public GameEntity {
 public:
-    enum class State { WALKING, EATING, DEAD };
+    enum class State { WALKING, EATING, DYING, DEAD };
+    enum class Type { NORMAL, CONEHEAD }; // 🚩 新增殭屍種類
 
-    Zombie(float x, float y);
+    // 🚩 建構子加入種類參數，預設為普通殭屍
+    Zombie(float x, float y, Type type = Type::NORMAL);
     void Update() override;
 
     void TakeDamage(int damage);
-    bool IsDead() const { return m_HP <= 0; }
+
+    bool IsDead() const { return m_CurrentState == State::DEAD; }
+    bool IsDying() const { return m_CurrentState == State::DYING; }
+
     void SetState(State state);
     State GetState() const { return m_CurrentState; }
     glm::vec2 GetPosition() const { return m_Transform.translation; }
 
     bool CanRemove() const { return m_CurrentState == State::DEAD && m_DeathTimer <= 0.0f; }
 
-    // 回傳生成的 ZombieHead 交給 App 管理
     std::shared_ptr<ZombieHead> SpawnHead();
 
 private:
-    int m_HP = 270;
+    Type m_Type;             // 殭屍種類
+    float m_ArmorHP = 0.0f;  // 裝甲生命值 (三角錐 370)
+    float m_HP = 270.0f;     // 本體生命值 (普通殭屍 270)
     float m_Speed = 14.4f;
-    float m_DeathTimer = 99.0f;
+
+    float m_DeathTimer = 0.0f;
 
     State m_CurrentState = State::WALKING;
 
-    int m_AppearanceStage = 1;
-    bool m_HeadDropped = false;
+    bool m_IsLostArm = false;
+    bool m_IsDecapitated = false;
+    bool m_HeadHandedOut = false;
 
     std::shared_ptr<Util::Animation> m_Animation;
     void UpdateAnimation();
 };
 
-#endif
+#endif // ZOMBIE_HPP

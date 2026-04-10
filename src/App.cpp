@@ -12,7 +12,7 @@
 #include <algorithm>
 
 void App::Start() {
-    // 1. 預載入圖片到成員變數
+    // 1. 預載入圖片資源
     m_ImgPea = std::make_shared<Util::Image>("resources/image/peashooter/peashooter_1.png");
     m_ImgSun = std::make_shared<Util::Image>("resources/image/sunflower/1.png");
     m_ImgNut = std::make_shared<Util::Image>("resources/image/wallnut/1.png");
@@ -44,24 +44,22 @@ void App::Start() {
         auto txtObj = std::make_shared<Util::GameObject>();
         auto txtDrawable = std::make_shared<Util::Text>(
             "resources/font/impact.ttf", 30, std::to_string(i + 1),
-            Util::Color::FromRGB(0, 0, 0, 255) // 修正：RGBA最後一位設為255文字才看得到
+            Util::Color::FromRGB(0, 0, 0, 255)
         );
         txtObj->SetDrawable(txtDrawable);
-        float xOffset = 7.0f;
-        txtObj->m_Transform.translation = {x + xOffset, y - 32.0f};
+        txtObj->m_Transform.translation = {x + 7.0f, y - 32.0f};
         txtObj->SetZIndex(71);
-
         m_LevelTexts.push_back(txtObj);
     }
 
-    // 4. 遊戲地圖與基礎物件
+    // 4. 地圖與卡槽系統
     m_Map = std::make_shared<GameMap>("resources/image/map.jpg");
     m_Map->m_Transform.scale = {2.0f, 2.0f};
     m_Map->SetZIndex(0);
 
     m_SeedBank = std::make_shared<SeedBank>();
 
-    // 5. 預覽物件 (大絕招版)
+    // 5. 種植預覽物件
     m_DragPreview = std::make_shared<Util::GameObject>();
     m_DragPreview->SetZIndex(100);
     m_DragPreview->SetVisible(false);
@@ -74,20 +72,18 @@ void App::Update() {
     glm::vec2 mousePos = Util::Input::GetCursorPosition();
     float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
 
-    // ----- [ 狀態 A: 首頁選單 ] -----
+    // ----- [ 狀態 A: 首頁 ] -----
     if (m_CurrentState == State::START) {
         if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB)) {
             if (mousePos.x > 50 && mousePos.x < 370 && mousePos.y > 80 && mousePos.y < 180) {
                 m_CurrentState = State::SELECT_LEVEL;
-                LOG_DEBUG("Entering Level Selection.");
             }
         }
         m_MenuBackground->Draw();
         m_StartButton->Draw();
         m_Root.Update();
     }
-
-    // ----- [ 狀態 B: 選關介面 ] -----
+    // ----- [ 狀態 B: 選關 ] -----
     else if (m_CurrentState == State::SELECT_LEVEL) {
         m_SelectLevelBG->Draw();
         for (int i = 0; i < (int)m_LevelButtons.size(); ++i) {
@@ -107,12 +103,11 @@ void App::Update() {
             m_LevelTexts[i]->Draw();
         }
     }
-
     // ----- [ 狀態 C: 遊戲進行中 ] -----
     else if (m_CurrentState == State::UPDATE) {
         m_SeedBank->UpdateCooldown(dt);
 
-        // --- 1. 滑鼠放開：種植邏輯 ---
+        // 1. 種植邏輯
         if (Util::Input::IsKeyUp(Util::Keycode::MOUSE_LB) && m_SelectedPlantType != 0) {
             int r, c;
             if (m_Map->GetGridIndex(mousePos, r, c)) {
@@ -127,7 +122,6 @@ void App::Update() {
                     p = std::make_shared<Wallnut>(0.0f, 0.0f);
                     if (m_Map->PlacePlant(r, c, p)) m_SunCurrency -= 50; else p = nullptr;
                 }
-
                 if (p) {
                     m_Root.AddChild(p);
                     m_SeedBank->StartCooldown(m_SelectedPlantType);
@@ -136,7 +130,8 @@ void App::Update() {
             m_SelectedPlantType = 0;
             m_DragPreview->SetVisible(false);
         }
-        // --- 2. 滑鼠按下：陽光收集 / 抓取卡片 ---
+
+        // 2. 陽光收集與卡片選取
         else if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB)) {
             bool actionHandled = false;
             for (auto it = m_Suns.begin(); it != m_Suns.end(); ) {
@@ -162,8 +157,7 @@ void App::Update() {
             }
         }
 
-        // --- 3. 邏輯更新 ---
-
+        // 3. 實體邏輯更新
         if (m_SelectedPlantType != 0) {
             int r, c;
             if (m_Map->GetGridIndex(mousePos, r, c))
@@ -174,7 +168,7 @@ void App::Update() {
 
         UpdatePlantActions();
 
-        // 陽光生存檢查
+        // 陽光移除邏輯
         for (auto& sun : m_Suns) sun->Update(dt);
         m_Suns.erase(std::remove_if(m_Suns.begin(), m_Suns.end(),
             [this](const std::shared_ptr<Sun>& s) {
@@ -182,11 +176,12 @@ void App::Update() {
                 return false;
             }), m_Suns.end());
 
-        // 子彈飛行與碰撞
+        // 子彈邏輯與碰撞
         for (auto it = m_Peas.begin(); it != m_Peas.end(); ) {
             (*it)->Update();
             bool peaHit = false;
             for (auto& zombie : m_zombies) {
+                // 垂死(DYING)依然擋子彈，徹底死亡(DEAD)才不擋
                 if (!zombie->IsDead() && glm::distance((*it)->GetPosition(), zombie->GetPosition()) < 40.0f) {
                     zombie->TakeDamage(20);
                     peaHit = true; break;
@@ -197,69 +192,78 @@ void App::Update() {
             } else { ++it; }
         }
 
-        // 🚩 殭屍與植物互動邏輯
+        // --- 殭屍與植物互動邏輯 ---
         for (auto& zombie : m_zombies) {
             zombie->Update();
+
+            // 檢查是否噴出頭部物件
             auto droppedHead = zombie->SpawnHead();
             if (droppedHead) {
                 m_ZombieHeads.push_back(droppedHead);
                 m_Root.AddChild(droppedHead);
             }
 
-            if (zombie->IsDead()) continue;
+            // 倒地或垂死時，無視植物繼續動作/穿透
+            if (zombie->IsDead() || zombie->IsDying()) {
+                if (zombie->GetState() == Zombie::State::EATING)
+                    zombie->SetState(Zombie::State::WALKING);
+                continue;
+            }
 
             int r, c;
-            // 偵測前方格子是否有植物
             if (m_Map->GetGridIndex(zombie->GetPosition() + glm::vec2{-25, 0}, r, c)) {
                 auto plant = m_Map->GetPlant(r, c);
                 if (plant) {
                     zombie->SetState(Zombie::State::EATING);
-                    plant->TakeDamage(static_cast<int>(200 * dt)); // 提高咬合傷害
+                    plant->TakeDamage(static_cast<int>(200 * dt));
                 } else {
-                    // 如果這格沒植物了，且殭屍還在啃，就恢復走路
                     if (zombie->GetState() == Zombie::State::EATING)
                         zombie->SetState(Zombie::State::WALKING);
                 }
             }
         }
 
-        // 🚩 全域死亡植物移除檢查
+        // 死亡植物清除
         for (int r = 0; r < 5; ++r) {
             for (int c = 0; c < 9; ++c) {
                 auto p = m_Map->GetPlant(r, c);
                 if (p && p->IsDead()) {
-                    LOG_DEBUG("Plant at {}, {} is dead!", r, c);
-                    m_Root.RemoveChild(p);    // 1. 畫面上弄不見
-                    m_Map->RemovePlant(r, c); // 2. 地圖格清空 (確保下一幀殭屍會變走路)
+                    m_Root.RemoveChild(p);
+                    m_Map->RemovePlant(r, c);
                 }
             }
         }
 
-        // 殭屍頭掉落邏輯
+        // 殭屍頭物理更新
         for (auto it = m_ZombieHeads.begin(); it != m_ZombieHeads.end(); ) {
-            (*it)->m_Transform.translation.y -= 100.0f * dt;
-            if ((*it)->m_Transform.translation.y < -800.0f) {
+            (*it)->Update(dt);
+            if ((*it)->CanRemove()) {
                 m_Root.RemoveChild(*it);
                 it = m_ZombieHeads.erase(it);
             } else { ++it; }
         }
 
-        // 移除死亡殭屍
+        // 移除死透的殭屍 (倒地動畫播完後)
         m_zombies.erase(std::remove_if(m_zombies.begin(), m_zombies.end(),
             [this](const std::shared_ptr<Zombie>& z) {
                 if (z->CanRemove()) { m_Root.RemoveChild(z); return true; }
                 return false;
             }), m_zombies.end());
 
-        // 殭屍生成與天空陽光 (依關卡難度)
+        // 殭屍生成與天空陽光 (依關卡)
         static float zombieTimer = 0.0f;
         zombieTimer += dt;
         float spawnRate = std::max(2.0f, 10.0f - m_CurrentLevel * 0.8f);
         if (zombieTimer > spawnRate) {
             int r = rand() % 5;
             float spawnY = m_Map->CalculateGridCenter(r, 8).y + 20.0f;
-            auto newZ = std::make_shared<Zombie>(700.0f, spawnY);
-            m_zombies.push_back(newZ); m_Root.AddChild(newZ);
+
+            // 🚩 隨機生成殭屍：30% 機率是三角錐殭屍，70% 是普通殭屍
+            Zombie::Type type = (rand() % 10 < 3) ? Zombie::Type::CONEHEAD : Zombie::Type::NORMAL;
+            auto newZ = std::make_shared<Zombie>(700.0f, spawnY, type);
+
+            m_zombies.push_back(newZ);
+            m_Root.AddChild(newZ);
             zombieTimer = 0.0f;
         }
 
@@ -273,8 +277,7 @@ void App::Update() {
             skySunTimer = 0.0f;
         }
 
-        // --- 4. 渲染 ---
-        m_Map->Update(); // 🚩 裡面也要補 dt，看下面說明
+        m_Map->Update();
         m_Root.Update();
         m_SeedBank->SetSunCount(m_SunCurrency);
         m_SeedBank->DrawUI();
@@ -285,7 +288,6 @@ void App::Update() {
 
 void App::UpdatePlantActions() {
     float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
-
     bool rowHasZombie[5] = {false, false, false, false, false};
     for (auto& zombie : m_zombies) {
         if (!zombie->IsDead()) {
@@ -301,7 +303,7 @@ void App::UpdatePlantActions() {
             auto plant = m_Map->GetPlant(r, c);
             if (!plant) continue;
 
-            plant->Update(dt); // 🚩 修正：傳入 dt
+            plant->Update(dt);
 
             auto flower = std::dynamic_pointer_cast<Sunflower>(plant);
             if (flower && flower->CanProduceSun()) {
