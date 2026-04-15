@@ -50,27 +50,36 @@ void App::Start() {
     m_Map->SetZIndex(0);
 
     m_SeedBank = std::make_shared<SeedBank>();
-
     m_DragPreview = std::make_shared<Util::GameObject>();
     m_DragPreview->SetZIndex(100);
     m_DragPreview->SetVisible(false);
     m_Root.AddChild(m_DragPreview);
 
-    // 🎯 核彈解法 Step 1：創建圖片，但【絕對不要放入 m_Root】
     m_DefeatScreen = std::make_shared<Util::GameObject>();
     m_DefeatScreen->SetDrawable(std::make_shared<Util::Image>("resources/image/defeat.png"));
-    m_DefeatScreen->m_Transform.translation = {0.0f, 0.0f}; // 放在螢幕正中間
-    m_DefeatScreen->m_Transform.scale = {2.5f, 2.5f}; // 恢復正常大小
-    m_DefeatScreen->SetVisible(true); // 永遠設為 True，我們靠手動控制畫不畫
+    m_DefeatScreen->m_Transform.translation = {0.0f, 0.0f};
+    m_DefeatScreen->m_Transform.scale = {2.5f, 2.5f};
+    m_DefeatScreen->SetVisible(true);
 
     m_CurrentState = State::START;
+}
+
+void App::LoadLevelConfig(int level) {
+    switch (level) {
+        case 1: m_CurrentLevelConfig = {15, 8.0f, 70, 20, 10}; break;
+        default: m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0}; break;
+    }
+    m_TotalZombiesToSpawn = m_CurrentLevelConfig.totalZombies;
+    m_ZombiesSpawnedInLevel = 0;
+    m_ZombieSpawnTimer = 0.0f;
+    m_SunCurrency = 50;
+    m_StateTimer = 0.0f;
 }
 
 void App::Update() {
     glm::vec2 mousePos = Util::Input::GetCursorPosition();
     float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
 
-    // ----- [ 狀態 A: 首頁 ] -----
     if (m_CurrentState == State::START) {
         m_MenuBackground->Draw();
         m_StartButton->Draw();
@@ -80,7 +89,6 @@ void App::Update() {
         }
         m_Root.Update();
     }
-    // ----- [ 狀態 B: 選關 ] -----
     else if (m_CurrentState == State::SELECT_LEVEL) {
         m_SelectLevelBG->Draw();
         for (int i = 0; i < (int)m_LevelButtons.size(); ++i) {
@@ -89,6 +97,7 @@ void App::Update() {
                 m_LevelTexts[i]->m_Transform.scale = {1.1f, 1.1f};
                 if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB)) {
                     m_CurrentLevel = i + 1;
+                    LoadLevelConfig(m_CurrentLevel);
                     m_Root.AddChild(m_Map);
                     m_CurrentState = State::UPDATE;
                 }
@@ -100,10 +109,48 @@ void App::Update() {
             m_LevelTexts[i]->Draw();
         }
     }
-    // ----- [ 狀態 C: 遊戲進行中 ] -----
     else if (m_CurrentState == State::UPDATE) {
+        // --- 🚩 優先判斷失敗凍結狀態 ---
+        bool zombieInHouse = false;
+        for (auto& z : m_zombies) {
+            if (z->GetPosition().x < -450.0f && !z->IsDead()) {
+                zombieInHouse = true;
+                break;
+            }
+        }
+
+        if (zombieInHouse) {
+            m_StateTimer += dt;
+            // 凍結期間：只做最後的渲染渲染，不做任何移動邏輯
+            m_Map->Update();
+            m_Root.Update();
+            m_SeedBank->DrawUI();
+            if (m_StateTimer >= 2.0f) {
+                m_StateTimer = 0.0f;
+                m_CurrentState = State::DEFEAT;
+            }
+            return; // 🚩 強制結束本次 Update，達成畫面卡死效果
+        }
+
+        // --- 🚩 勝利凍結狀態 ---
+        if (m_ZombiesSpawnedInLevel >= m_TotalZombiesToSpawn && m_zombies.empty()) {
+            m_StateTimer += dt;
+            m_Map->Update();
+            m_Root.Update();
+            m_SeedBank->DrawUI();
+            if (m_StateTimer >= 2.0f) {
+                ResetGame();
+                m_CurrentState = State::SELECT_LEVEL;
+            }
+            return; // 🚩 強制結束本次 Update
+        } else {
+            m_StateTimer = 0.0f;
+        }
+
+        // --- 以下為正常遊戲邏輯更新 ---
         m_SeedBank->UpdateCooldown(dt);
 
+        // 種植採集邏輯
         if (Util::Input::IsKeyUp(Util::Keycode::MOUSE_LB) && m_SelectedPlantType != 0) {
             int r, c;
             if (m_Map->GetGridIndex(mousePos, r, c)) {
@@ -124,13 +171,9 @@ void App::Update() {
             bool actionHandled = false;
             for (auto it = m_Suns.begin(); it != m_Suns.end(); ) {
                 if ((*it)->IsClicked(mousePos)) {
-                    m_SunCurrency += 25;
-                    (*it)->Collect();
-                    m_Root.RemoveChild(*it);
-                    it = m_Suns.erase(it);
-                    actionHandled = true;
-                    break;
-                } else { ++it; }
+                    m_SunCurrency += 25; (*it)->Collect(); m_Root.RemoveChild(*it);
+                    it = m_Suns.erase(it); actionHandled = true; break;
+                } else ++it;
             }
             if (!actionHandled && m_SelectedPlantType == 0) {
                 int type = m_SeedBank->GetSelectedType(mousePos);
@@ -153,11 +196,9 @@ void App::Update() {
         UpdatePlantActions();
 
         for (auto& sun : m_Suns) sun->Update(dt);
-        m_Suns.erase(std::remove_if(m_Suns.begin(), m_Suns.end(),
-            [this](const std::shared_ptr<Sun>& s) {
-                if (s->ShouldRemove()) { m_Root.RemoveChild(s); return true; }
-                return false;
-            }), m_Suns.end());
+        m_Suns.erase(std::remove_if(m_Suns.begin(), m_Suns.end(), [this](const std::shared_ptr<Sun>& s) {
+            if (s->ShouldRemove()) { m_Root.RemoveChild(s); return true; } return false;
+        }), m_Suns.end());
 
         for (auto it = m_Peas.begin(); it != m_Peas.end(); ) {
             (*it)->Update(dt);
@@ -167,29 +208,15 @@ void App::Update() {
                     z->TakeDamage(20); peaHit = true; break;
                 }
             }
-            if (peaHit || (*it)->IsOffScreen()) {
-                m_Root.RemoveChild(*it); it = m_Peas.erase(it);
-            } else { ++it; }
+            if (peaHit || (*it)->IsOffScreen()) { m_Root.RemoveChild(*it); it = m_Peas.erase(it); } else ++it;
         }
-
-        bool isDefeated = false;
 
         for (auto& z : m_zombies) {
             z->Update(dt);
-
-            if (z->GetPosition().x < -450.0f && !z->IsDead()) {
-                LOG_DEBUG("DEFEAT triggered!");
-                isDefeated = true;
-            }
-
             auto head = z->SpawnHead();
             if (head) { m_ZombieHeads.push_back(head); m_Root.AddChild(head); }
 
-            if (z->IsDead()) {
-                if (z->GetState() == Zombie::State::EATING) z->SetState(Zombie::State::WALKING);
-                continue;
-            }
-
+            if (z->IsDead()) continue;
             int r, c;
             if (m_Map->GetGridIndex(z->GetPosition() + glm::vec2{-25, 0}, r, c)) {
                 auto p = m_Map->GetPlant(r, c);
@@ -198,93 +225,59 @@ void App::Update() {
             }
         }
 
-        // 🎯 核彈解法 Step 2：一旦失敗，我們【立刻中斷】這個畫面的渲染！
-        if (isDefeated) {
-            m_CurrentState = State::DEFEAT;
-            return; // 直接離開這個迴圈，不畫後面的 m_Root.Update() 了！
-        }
+        // 生成殭屍
+        if (m_ZombiesSpawnedInLevel < m_TotalZombiesToSpawn) {
+            m_ZombieSpawnTimer += dt;
+            if (m_ZombieSpawnTimer > m_CurrentLevelConfig.spawnInterval) {
+                int r = rand() % 5;
+                int totalW = m_CurrentLevelConfig.weightNormal + m_CurrentLevelConfig.weightCone + m_CurrentLevelConfig.weightBucket;
+                int randVal = rand() % (totalW > 0 ? totalW : 1);
+                Zombie::Type type;
+                if (randVal < m_CurrentLevelConfig.weightNormal) type = Zombie::Type::NORMAL;
+                else if (randVal < m_CurrentLevelConfig.weightNormal + m_CurrentLevelConfig.weightCone) type = Zombie::Type::CONEHEAD;
+                else type = Zombie::Type::BUCKETHEAD;
 
-        // App.cpp 裡的生成區塊
-
-        static float zombieTimer = 0.0f;
-        zombieTimer += dt;
-
-        // 這裡我們暫時維持原本的生成頻率邏輯
-        if (zombieTimer > std::max(2.0f, 10.0f - m_CurrentLevel * 0.8f)) {
-            int r = rand() % 5;
-            float spawnY = m_Map->CalculateGridCenter(r, 8).y + 20.0f;
-
-            // 🚩 隨機決定種類：普通 (60%)、三角錐 (25%)、鐵桶 (15%)
-            int randVal = rand() % 100;
-            Zombie::Type type;
-
-            if (randVal < 60) {
-                type = Zombie::Type::NORMAL;
-            } else if (randVal < 85) {
-                type = Zombie::Type::CONEHEAD;
-            } else {
-                type = Zombie::Type::BUCKETHEAD;
+                auto newZ = std::make_shared<Zombie>(750.0f, m_Map->CalculateGridCenter(r, 8).y + 20.0f, type);
+                m_zombies.push_back(newZ); m_Root.AddChild(newZ);
+                m_ZombiesSpawnedInLevel++;
+                m_ZombieSpawnTimer = 0.0f;
             }
-
-            auto newZ = std::make_shared<Zombie>(700.0f, spawnY, type);
-            m_zombies.push_back(newZ);
-            m_Root.AddChild(newZ);
-
-            zombieTimer = 0.0f;
         }
 
         static float skySunTimer = 0.0f;
         skySunTimer += dt;
         if (skySunTimer > 13.0f) {
-            auto s = std::make_shared<Sun>(
-                static_cast<float>(rand() % 611 - 430), 320.0f,
-                static_cast<float>(rand() % 291 - 140));
+            auto s = std::make_shared<Sun>(static_cast<float>(rand() % 611 - 430), 320.0f, static_cast<float>(rand() % 291 - 140));
             m_Suns.push_back(s); m_Root.AddChild(s);
             skySunTimer = 0.0f;
         }
 
+        // 清理邏輯
         for (auto it = m_ZombieHeads.begin(); it != m_ZombieHeads.end(); ) {
             (*it)->Update(dt);
-            if ((*it)->CanRemove()) { m_Root.RemoveChild(*it); it = m_ZombieHeads.erase(it); }
-            else { ++it; }
+            if ((*it)->CanRemove()) { m_Root.RemoveChild(*it); it = m_ZombieHeads.erase(it); } else ++it;
         }
-
         for (int r = 0; r < 5; ++r) {
             for (int c = 0; c < 9; ++c) {
                 auto p = m_Map->GetPlant(r, c);
                 if (p && p->IsDead()) { m_Root.RemoveChild(p); m_Map->RemovePlant(r, c); }
             }
         }
-
-        m_zombies.erase(std::remove_if(m_zombies.begin(), m_zombies.end(),
-            [this](const std::shared_ptr<Zombie>& z) {
-                if (z->CanRemove()) { m_Root.RemoveChild(z); return true; }
-                return false;
-            }), m_zombies.end());
+        m_zombies.erase(std::remove_if(m_zombies.begin(), m_zombies.end(), [this](const std::shared_ptr<Zombie>& z) {
+            if (z->CanRemove()) { m_Root.RemoveChild(z); return true; } return false;
+        }), m_zombies.end());
 
         m_Map->Update();
         m_Root.Update();
         m_SeedBank->SetSunCount(m_SunCurrency);
         m_SeedBank->DrawUI();
     }
-    // ----- [ 狀態 D: 失敗 ] -----
     else if (m_CurrentState == State::DEFEAT) {
-        // 🎯 核彈解法 Step 3：完全切斷地圖與殭屍的渲染！
-        // 我們在這裡【故意不呼叫 m_Root.Update()】，所以背景會變成全黑
-        // 接著我們單獨畫出這張圖片，它絕對 100% 會出現在黑底正中央！
-
-        if (m_DefeatScreen) {
-            m_DefeatScreen->Draw();
-        }
-
-        if (Util::Input::IsKeyDown(Util::Keycode::SPACE)) {
-            ResetGame();
-            m_CurrentState = State::START;
-        }
+        if (m_DefeatScreen) m_DefeatScreen->Draw();
+        if (Util::Input::IsKeyDown(Util::Keycode::SPACE)) { ResetGame(); m_CurrentState = State::START; }
     }
 
-    if (Util::Input::IsKeyUp(Util::Keycode::ESCAPE) || Util::Input::IfExit())
-        m_CurrentState = State::END;
+    if (Util::Input::IsKeyUp(Util::Keycode::ESCAPE) || Util::Input::IfExit()) m_CurrentState = State::END;
 }
 
 void App::ResetGame() {
@@ -293,7 +286,6 @@ void App::ResetGame() {
     for (auto& p : m_Peas) m_Root.RemoveChild(p);
     for (auto& s : m_Suns) m_Root.RemoveChild(s);
     for (auto& h : m_ZombieHeads) m_Root.RemoveChild(h);
-
     m_zombies.clear(); m_Peas.clear(); m_Suns.clear(); m_ZombieHeads.clear();
     for (int r = 0; r < 5; r++) {
         for (int c = 0; c < 9; c++) {
@@ -304,11 +296,12 @@ void App::ResetGame() {
     m_SunCurrency = 50;
     m_SelectedPlantType = 0;
     m_DragPreview->SetVisible(false);
+    m_ZombiesSpawnedInLevel = 0;
+    m_StateTimer = 0.0f;
 }
 
 void App::UpdatePlantActions() {
     float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
-
     bool rowHasZombie[5] = {false, false, false, false, false};
     for (auto& zombie : m_zombies) {
         if (!zombie->IsDead()) {
@@ -318,33 +311,22 @@ void App::UpdatePlantActions() {
             }
         }
     }
-
     for (int r = 0; r < 5; ++r) {
         for (int c = 0; c < 9; ++c) {
             auto plant = m_Map->GetPlant(r, c);
             if (!plant) continue;
-
             plant->Update(dt);
-
             if (auto flower = std::dynamic_pointer_cast<Sunflower>(plant)) {
                 if (flower->CanProduceSun()) {
-                    auto s = std::make_shared<Sun>(
-                        flower->GetPosition().x,
-                        flower->GetPosition().y + 50.0f,
-                        flower->GetPosition().y - 10.0f);
+                    auto s = std::make_shared<Sun>(flower->GetPosition().x, flower->GetPosition().y + 50.0f, flower->GetPosition().y - 10.0f);
                     m_Suns.push_back(s); m_Root.AddChild(s); flower->ResetSunFlag();
                 }
             }
-
             if (auto shooter = std::dynamic_pointer_cast<Peashooter>(plant)) {
                 if (rowHasZombie[r] && shooter->CanFire()) {
-                    auto p = std::make_shared<Pea>(
-                        shooter->GetPosition().x + 30.0f,
-                        shooter->GetPosition().y + 35.0f);
+                    auto p = std::make_shared<Pea>(shooter->GetPosition().x + 30.0f, shooter->GetPosition().y + 35.0f);
                     m_Peas.push_back(p); m_Root.AddChild(p); shooter->ResetFireFlag();
-                } else if (!rowHasZombie[r]) {
-                    shooter->ResetFireFlag();
-                }
+                } else if (!rowHasZombie[r]) shooter->ResetFireFlag();
             }
         }
     }

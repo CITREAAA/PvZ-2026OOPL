@@ -33,6 +33,21 @@ public:
     void End();
 
 private:
+    struct LevelConfig {
+        int totalZombies;
+        float spawnInterval;
+        int weightNormal;
+        int weightCone;
+        int weightBucket;
+    };
+
+    float m_StateTimer = 0.0f;
+
+    int m_ZombiesSpawnedInLevel = 0;
+    int m_TotalZombiesToSpawn = 0;
+    float m_ZombieSpawnTimer = 0.0f;
+    LevelConfig m_CurrentLevelConfig;
+
     // --- 核心狀態管理 ---
     State m_CurrentState = State::START;
     Util::Renderer m_Root;
@@ -72,7 +87,7 @@ private:
 
     void ResetGame();
     void UpdatePlantActions();
-    void ValidTask();
+    void LoadLevelConfig(int level);
 };
 
 #endif
