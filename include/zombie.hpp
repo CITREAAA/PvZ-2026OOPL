@@ -31,7 +31,7 @@ private:
 class Zombie : public GameEntity {
 public:
     enum class State { WALKING, EATING, DYING, DEAD };
-    enum class Type { NORMAL, CONEHEAD }; // 🚩 新增殭屍種類
+    enum class Type { NORMAL, CONEHEAD, BUCKETHEAD };
 
     // 🚩 建構子加入種類參數，預設為普通殭屍
     Zombie(float x, float y, Type type = Type::NORMAL);

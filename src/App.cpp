@@ -179,7 +179,7 @@ void App::Update() {
 
             if (z->GetPosition().x < -450.0f && !z->IsDead()) {
                 LOG_DEBUG("DEFEAT triggered!");
-                isDefeated = true; // 記錄失敗
+                isDefeated = true;
             }
 
             auto head = z->SpawnHead();
@@ -204,13 +204,32 @@ void App::Update() {
             return; // 直接離開這個迴圈，不畫後面的 m_Root.Update() 了！
         }
 
+        // App.cpp 裡的生成區塊
+
         static float zombieTimer = 0.0f;
         zombieTimer += dt;
+
+        // 這裡我們暫時維持原本的生成頻率邏輯
         if (zombieTimer > std::max(2.0f, 10.0f - m_CurrentLevel * 0.8f)) {
             int r = rand() % 5;
-            Zombie::Type type = (rand() % 10 < 3) ? Zombie::Type::CONEHEAD : Zombie::Type::NORMAL;
-            auto newZ = std::make_shared<Zombie>(700.0f, m_Map->CalculateGridCenter(r, 8).y + 20.0f, type);
-            m_zombies.push_back(newZ); m_Root.AddChild(newZ);
+            float spawnY = m_Map->CalculateGridCenter(r, 8).y + 20.0f;
+
+            // 🚩 隨機決定種類：普通 (60%)、三角錐 (25%)、鐵桶 (15%)
+            int randVal = rand() % 100;
+            Zombie::Type type;
+
+            if (randVal < 60) {
+                type = Zombie::Type::NORMAL;
+            } else if (randVal < 85) {
+                type = Zombie::Type::CONEHEAD;
+            } else {
+                type = Zombie::Type::BUCKETHEAD;
+            }
+
+            auto newZ = std::make_shared<Zombie>(700.0f, spawnY, type);
+            m_zombies.push_back(newZ);
+            m_Root.AddChild(newZ);
+
             zombieTimer = 0.0f;
         }
 
