@@ -1,6 +1,7 @@
 #include "Zombie.hpp"
 #include "Util/Time.hpp"
 #include "Util/Logger.hpp"
+#include "Util/SFX.hpp"
 #include <filesystem>
 #include <algorithm>
 #include <string>
@@ -60,7 +61,15 @@ void ZombieHead::Update(float dt) {
 Zombie::Zombie(float x, float y, Type type) : GameEntity("", 270.0f), m_Type(type) {
     m_Transform.translation = {x, y};
     m_ZIndex = 50;
-    m_ArmorHP = (m_Type == Type::CONEHEAD) ? 370.0f : 0.0f;
+    if (m_Type == Type::BUCKETHEAD) {
+        m_ArmorHP = 1100.0f; // 鐵桶 HP
+    } else if (m_Type == Type::CONEHEAD) {
+        m_ArmorHP = 370.0f;  // 三角錐 HP
+    } else {
+        m_ArmorHP = 0.0f;    // 普通殭屍
+    }
+    m_EatSFX = std::make_shared<Util::SFX>("resources/music/zombieChomp.wav");
+    m_GroanSFX = std::make_shared<Util::SFX>("resources/audio/zombieAppearGroan4.wav");
     m_HP = 270.0f; // 強制初始化血量
     UpdateAnimation();
 }
@@ -71,6 +80,16 @@ void Zombie::Update(float dt) {
     if (m_CurrentState == State::DEAD) {
         if (m_DeathTimer > 0.0f) m_DeathTimer -= dt;
         return;
+    }
+
+    if (m_CurrentState == State::EATING) {
+        m_EatSoundTimer -= dt;
+        if (m_EatSoundTimer <= 0.0f) {
+            if (m_EatSFX) m_EatSFX->Play();
+            m_EatSoundTimer = 0.6f; // 每 0.6 秒響一次，節奏最剛好
+        }
+    } else {
+        m_EatSoundTimer = 0.0f; // 如果沒在吃，計時器歸零
     }
 
     // 2. 斷頭流血與致死檢查 (核心：只要血量 <= 0 絕對要倒下)
@@ -147,7 +166,12 @@ void Zombie::UpdateAnimation() {
         path = "resources/image/zombie/normal_zombie/die/ZombieLostHead";
     }
     else {
-        if (m_Type == Type::CONEHEAD) {
+        if (m_Type == Type::BUCKETHEAD) {
+            path = (m_CurrentState == State::EATING) ?
+                   "resources/image/zombie/buckethead_zombie/eat" :
+                   "resources/image/zombie/buckethead_zombie";
+        }
+        else if (m_Type == Type::CONEHEAD) {
             path = (m_CurrentState == State::EATING) ?
                    "resources/image/zombie/conehead_zombie/eat" :
                    "resources/image/zombie/conehead_zombie";

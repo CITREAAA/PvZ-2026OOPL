@@ -12,6 +12,8 @@
 #include "Util/GameObject.hpp"
 #include "Util/Image.hpp"
 #include "Util/Text.hpp"
+#include "Util/BGM.hpp"
+#include "Util/SFX.hpp"
 #include <vector>
 #include <memory>
 
@@ -33,6 +35,22 @@ public:
     void End();
 
 private:
+
+    struct LevelConfig {
+        int totalZombies;
+        float spawnInterval;
+        int weightNormal;
+        int weightCone;
+        int weightBucket;
+    };
+
+    float m_StateTimer = 0.0f;
+
+    int m_ZombiesSpawnedInLevel = 0;
+    int m_TotalZombiesToSpawn = 0;
+    float m_ZombieSpawnTimer = 0.0f;
+    LevelConfig m_CurrentLevelConfig;
+
     // --- 核心狀態管理 ---
     State m_CurrentState = State::START;
     Util::Renderer m_Root;
@@ -70,7 +88,16 @@ private:
 
     std::shared_ptr<Util::GameObject> m_DefeatScreen;
 
+    // --- 音訊系統 ---
+    std::shared_ptr<Util::BGM> m_MenuBGM;
+    std::shared_ptr<Util::BGM> m_GameBGM;
+    std::shared_ptr<Util::SFX> m_SunCollectSFX; // 收集陽光
+    std::shared_ptr<Util::SFX> m_PlantSeedSFX;  // 種下植物
+    std::shared_ptr<Util::SFX> m_PeaHitSFX;     // 豌豆打到殭屍 (給 App.cpp 判定碰撞用)
+    std::shared_ptr<Util::SFX> m_DefeatSFX;
+
     void ResetGame();
+    void LoadLevelConfig(int level);
     void UpdatePlantActions();
     void ValidTask();
 };
