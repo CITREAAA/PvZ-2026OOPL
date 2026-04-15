@@ -39,7 +39,7 @@ void App::Start() {
         m_LevelButtons.push_back(btn);
 
         auto txtObj = std::make_shared<Util::GameObject>();
-        txtObj->SetDrawable(std::make_shared<Util::Text>("resources/font/impact.ttf", 30, std::to_string(i + 1), Util::Color::FromRGB(0, 0, 0)));
+        txtObj->SetDrawable(std::make_shared<Util::Text>("resources/font/impact.ttf", 30, std::to_string(i + 1), Util::Color::FromRGB(0, 0, 0, 255)));
         txtObj->m_Transform.translation = {x + 7.0f, y - 32.0f};
         txtObj->SetZIndex(71);
         m_LevelTexts.push_back(txtObj);
@@ -56,13 +56,12 @@ void App::Start() {
     m_DragPreview->SetVisible(false);
     m_Root.AddChild(m_DragPreview);
 
+    // 🎯 核彈解法 Step 1：創建圖片，但【絕對不要放入 m_Root】
     m_DefeatScreen = std::make_shared<Util::GameObject>();
     m_DefeatScreen->SetDrawable(std::make_shared<Util::Image>("resources/image/defeat.png"));
-    m_DefeatScreen->m_Transform.translation = {0.0f, 0.0f};
-    m_DefeatScreen->m_Transform.scale = {3.0f, 3.0f};
-    m_DefeatScreen->SetZIndex(1000);
-    m_DefeatScreen->SetVisible(false);
-    m_Root.AddChild(m_DefeatScreen);
+    m_DefeatScreen->m_Transform.translation = {0.0f, 0.0f}; // 放在螢幕正中間
+    m_DefeatScreen->m_Transform.scale = {2.5f, 2.5f}; // 恢復正常大小
+    m_DefeatScreen->SetVisible(true); // 永遠設為 True，我們靠手動控制畫不畫
 
     m_CurrentState = State::START;
 }
@@ -105,7 +104,6 @@ void App::Update() {
     else if (m_CurrentState == State::UPDATE) {
         m_SeedBank->UpdateCooldown(dt);
 
-        // 1. 種植與收集邏輯
         if (Util::Input::IsKeyUp(Util::Keycode::MOUSE_LB) && m_SelectedPlantType != 0) {
             int r, c;
             if (m_Map->GetGridIndex(mousePos, r, c)) {
@@ -152,10 +150,8 @@ void App::Update() {
                 ? m_Map->CalculateGridCenter(r, c) : mousePos;
         }
 
-        // 2. 更新植物邏輯
         UpdatePlantActions();
 
-        // 3. 陽光更新
         for (auto& sun : m_Suns) sun->Update(dt);
         m_Suns.erase(std::remove_if(m_Suns.begin(), m_Suns.end(),
             [this](const std::shared_ptr<Sun>& s) {
@@ -163,7 +159,6 @@ void App::Update() {
                 return false;
             }), m_Suns.end());
 
-        // 4. 豆子更新 ← 修正：傳入 dt
         for (auto it = m_Peas.begin(); it != m_Peas.end(); ) {
             (*it)->Update(dt);
             bool peaHit = false;
@@ -177,26 +172,24 @@ void App::Update() {
             } else { ++it; }
         }
 
-        // 5. 殭屍更新 ← 修正：傳入 dt
+        bool isDefeated = false;
+
         for (auto& z : m_zombies) {
             z->Update(dt);
 
-            // 失敗判定
             if (z->GetPosition().x < -450.0f && !z->IsDead()) {
                 LOG_DEBUG("DEFEAT triggered!");
-                m_DefeatScreen->SetVisible(true);
-                m_CurrentState = State::DEFEAT;
+                isDefeated = true; // 記錄失敗
             }
 
-            // 斷頭生成
             auto head = z->SpawnHead();
             if (head) { m_ZombieHeads.push_back(head); m_Root.AddChild(head); }
 
-            // 啃咬邏輯
-            if (z->IsDead() || z->IsDying()) {
+            if (z->IsDead()) {
                 if (z->GetState() == Zombie::State::EATING) z->SetState(Zombie::State::WALKING);
                 continue;
             }
+
             int r, c;
             if (m_Map->GetGridIndex(z->GetPosition() + glm::vec2{-25, 0}, r, c)) {
                 auto p = m_Map->GetPlant(r, c);
@@ -205,7 +198,12 @@ void App::Update() {
             }
         }
 
-        // 6. 殭屍生成
+        // 🎯 核彈解法 Step 2：一旦失敗，我們【立刻中斷】這個畫面的渲染！
+        if (isDefeated) {
+            m_CurrentState = State::DEFEAT;
+            return; // 直接離開這個迴圈，不畫後面的 m_Root.Update() 了！
+        }
+
         static float zombieTimer = 0.0f;
         zombieTimer += dt;
         if (zombieTimer > std::max(2.0f, 10.0f - m_CurrentLevel * 0.8f)) {
@@ -216,7 +214,6 @@ void App::Update() {
             zombieTimer = 0.0f;
         }
 
-        // 7. 天降陽光生成
         static float skySunTimer = 0.0f;
         skySunTimer += dt;
         if (skySunTimer > 13.0f) {
@@ -227,14 +224,12 @@ void App::Update() {
             skySunTimer = 0.0f;
         }
 
-        // 8. 殭屍頭更新與清理
         for (auto it = m_ZombieHeads.begin(); it != m_ZombieHeads.end(); ) {
             (*it)->Update(dt);
             if ((*it)->CanRemove()) { m_Root.RemoveChild(*it); it = m_ZombieHeads.erase(it); }
             else { ++it; }
         }
 
-        // 9. 清理死亡植物
         for (int r = 0; r < 5; ++r) {
             for (int c = 0; c < 9; ++c) {
                 auto p = m_Map->GetPlant(r, c);
@@ -242,14 +237,12 @@ void App::Update() {
             }
         }
 
-        // 10. 清理死亡殭屍
         m_zombies.erase(std::remove_if(m_zombies.begin(), m_zombies.end(),
             [this](const std::shared_ptr<Zombie>& z) {
                 if (z->CanRemove()) { m_Root.RemoveChild(z); return true; }
                 return false;
             }), m_zombies.end());
 
-        // 11. 渲染
         m_Map->Update();
         m_Root.Update();
         m_SeedBank->SetSunCount(m_SunCurrency);
@@ -257,7 +250,14 @@ void App::Update() {
     }
     // ----- [ 狀態 D: 失敗 ] -----
     else if (m_CurrentState == State::DEFEAT) {
-        m_Root.Update(); // DefeatScreen 已在 Root 內，SetVisible(true) 後自動渲染
+        // 🎯 核彈解法 Step 3：完全切斷地圖與殭屍的渲染！
+        // 我們在這裡【故意不呼叫 m_Root.Update()】，所以背景會變成全黑
+        // 接著我們單獨畫出這張圖片，它絕對 100% 會出現在黑底正中央！
+
+        if (m_DefeatScreen) {
+            m_DefeatScreen->Draw();
+        }
+
         if (Util::Input::IsKeyDown(Util::Keycode::SPACE)) {
             ResetGame();
             m_CurrentState = State::START;
@@ -274,6 +274,7 @@ void App::ResetGame() {
     for (auto& p : m_Peas) m_Root.RemoveChild(p);
     for (auto& s : m_Suns) m_Root.RemoveChild(s);
     for (auto& h : m_ZombieHeads) m_Root.RemoveChild(h);
+
     m_zombies.clear(); m_Peas.clear(); m_Suns.clear(); m_ZombieHeads.clear();
     for (int r = 0; r < 5; r++) {
         for (int c = 0; c < 9; c++) {
@@ -282,7 +283,6 @@ void App::ResetGame() {
         }
     }
     m_SunCurrency = 50;
-    m_DefeatScreen->SetVisible(false);
     m_SelectedPlantType = 0;
     m_DragPreview->SetVisible(false);
 }
