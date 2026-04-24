@@ -53,6 +53,7 @@ void App::Start() {
     m_Map->SetZIndex(0);
 
     m_SeedBank = std::make_shared<SeedBank>();
+    m_SeedBank->InitCards({1, 2, 3});
     m_DragPreview = std::make_shared<Util::GameObject>();
     m_DragPreview->SetZIndex(100);
     m_DragPreview->SetVisible(false);
@@ -77,10 +78,16 @@ void App::Start() {
 }
 
 void App::LoadLevelConfig(int level) {
+    std::vector<int> allowed;
     switch (level) {
-        case 1: m_CurrentLevelConfig = {15, 8.0f, 70, 20, 10}; break;
-        default: m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0}; break;
+        case 1:
+            allowed = {1, 2, 3};
+            m_CurrentLevelConfig = {15, 8.0f, 70, 20, 10,allowed}; break;
+        default:
+            allowed = {1, 2, 3, 5};
+            m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,allowed}; break;
     }
+    m_SeedBank->InitCards(allowed);
     m_TotalZombiesToSpawn = m_CurrentLevelConfig.totalZombies;
     m_ZombiesSpawnedInLevel = 0;
     m_ZombieSpawnTimer = 0.0f;
