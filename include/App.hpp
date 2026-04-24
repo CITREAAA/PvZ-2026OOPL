@@ -17,6 +17,7 @@
 #include <vector>
 #include <memory>
 
+
 class App {
 public:
     enum class State {
@@ -35,6 +36,15 @@ public:
     void End();
 
 private:
+
+
+    struct LawnMowerData {
+        enum class State { IDLE, MOVING, REMOVED };
+        std::shared_ptr<Util::GameObject> obj;
+        State state = State::IDLE;
+        int row;
+        float speed = 500.0f;
+    };
 
     struct LevelConfig {
         int totalZombies;
@@ -96,6 +106,9 @@ private:
     std::shared_ptr<Util::SFX> m_PlantSeedSFX;  // 種下植物
     std::shared_ptr<Util::SFX> m_PeaHitSFX;     // 豌豆打到殭屍 (給 App.cpp 判定碰撞用)
     std::shared_ptr<Util::SFX> m_DefeatSFX;
+
+    std::vector<std::shared_ptr<LawnMowerData>> m_LawnMowers;
+    std::shared_ptr<Util::SFX> m_LawnMowerSFX;
 
     void ResetGame();
     void LoadLevelConfig(int level);

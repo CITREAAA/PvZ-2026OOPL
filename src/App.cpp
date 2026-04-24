@@ -72,7 +72,7 @@ void App::Start() {
     m_DefeatSFX = std::make_shared<Util::SFX>("resources/music/gameLose.wav");
 
     if (m_MenuBGM) m_MenuBGM->Play(-1);
-
+    ResetGame();
     m_CurrentState = State::START;
 }
 
@@ -127,11 +127,69 @@ void App::Update() {
     }
     // --- [ 狀態 C: 遊戲更新 ] ---
     else if (m_CurrentState == State::UPDATE) {
-        // --- 🚩 失敗判定與凍結時間 ---
+
+
+        // --- 🚩 處理除草機移動與殺殭屍 ---
+        for (auto& mower : m_LawnMowers) {
+            if (mower->state == LawnMowerData::State::MOVING) {
+                mower->obj->m_Transform.translation.x += mower->speed * dt;
+                mower->obj->Draw();
+
+                // 檢查該行所有殭屍，若碰到移動中的除草機則秒殺
+                for (auto& z : m_zombies) {
+                    if (!z->IsDead() && std::abs(z->GetPosition().y - mower->obj->m_Transform.translation.y) < 50.0f) {
+                        if (std::abs(z->GetPosition().x - mower->obj->m_Transform.translation.x) < 60.0f) {
+                            z->TakeDamage(9999); // 秒殺殭屍
+                        }
+                    }
+                }
+                // 跑出螢幕邊界則標記移除
+                if (mower->obj->m_Transform.translation.x > 600.0f) mower->state = LawnMowerData::State::REMOVED;
+            }
+            else if (mower->state == LawnMowerData::State::IDLE) {
+                mower->obj->Draw(); // 靜止狀態也要繪製
+            }
+        }
+
+        // 🚩 增加：清理跑出螢幕的除草機
+        m_LawnMowers.erase(std::remove_if(m_LawnMowers.begin(), m_LawnMowers.end(),
+            [this](const std::shared_ptr<LawnMowerData>& m){
+                if (m->state == LawnMowerData::State::REMOVED) {
+                    m_Root.RemoveChild(m->obj); return true;
+                }
+                return false;
+            }), m_LawnMowers.end());
+
+
         bool zombieInHouse = false;
         for (auto& z : m_zombies) {
-            if (z->GetPosition().x < -450.0f && !z->IsDead()) {
-                zombieInHouse = true; break;
+            if (z->IsDead()) continue;
+
+            // 🚩 修正點 1：將觸發界線從 -480 挪到 -400 試試看
+            // 這能確保殭屍還沒進屋前就先觸發除草機
+            if (z->GetPosition().x < -430.0f) {
+                int r, c;
+                m_Map->GetGridIndex(z->GetPosition(), r, c);
+
+                // 🚩 修正點 2：不要只依賴 GetGridIndex，直接用 Y 軸距離來找除草機
+                // 這樣可以避免地圖索引計算誤差
+                auto it = std::find_if(m_LawnMowers.begin(), m_LawnMowers.end(),
+                    [&](const std::shared_ptr<LawnMowerData>& m) {
+                        return m->state == LawnMowerData::State::IDLE &&
+                               std::abs(m->obj->m_Transform.translation.y - z->GetPosition().y) < 60.0f;
+                    });
+
+                if (it != m_LawnMowers.end()) {
+                    (*it)->state = LawnMowerData::State::MOVING;
+                    if (m_LawnMowerSFX) m_LawnMowerSFX->Play();
+                    LOG_DEBUG("除草機第 {} 排已觸發！", (*it)->row);
+                } else {
+                    // 🚩 修正點 3：只有當「真的越過最後防線 (-500)」且「該行沒除草機」才算輸
+                    if (z->GetPosition().x < -470.0f) {
+                        zombieInHouse = true;
+                        break;
+                    }
+                }
             }
         }
 
@@ -327,6 +385,29 @@ void App::Update() {
 }
 
 void App::ResetGame() {
+
+    for (auto& m : m_LawnMowers) m_Root.RemoveChild(m->obj);
+    m_LawnMowers.clear();
+
+    for (int r = 0; r < 5; ++r) {
+        auto mowerData = std::make_shared<LawnMowerData>();
+        mowerData->obj = std::make_shared<Util::GameObject>();
+        mowerData->obj->SetDrawable(std::make_shared<Util::Image>("resources/image/weeder.png"));
+
+        float posY = m_Map->CalculateGridCenter(r, 0).y + 20.0f;
+
+        // 設定在螢幕左側外緣，對齊每一行的 Y 軸中心
+        mowerData->obj->m_Transform.translation = {-450.0f, m_Map->CalculateGridCenter(r, 0).y};
+        mowerData->obj->SetZIndex(45); // 層級在殭屍下方
+        mowerData->row = r;
+        mowerData->state = LawnMowerData::State::IDLE;
+
+        m_LawnMowers.push_back(mowerData);
+        m_Root.AddChild(mowerData->obj);
+    }
+
+
+
     m_Root.RemoveChild(m_Map);
     for (auto& z : m_zombies) m_Root.RemoveChild(z);
     for (auto& p : m_Peas) m_Root.RemoveChild(p);
