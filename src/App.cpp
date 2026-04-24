@@ -83,8 +83,32 @@ void App::LoadLevelConfig(int level) {
         case 1:
             allowed = {1, 2, 3};
             m_CurrentLevelConfig = {15, 8.0f, 70, 20, 10,allowed}; break;
-        default:
+        case 2:
             allowed = {1, 2, 3, 5};
+            m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,allowed}; break;
+        case 3:
+            allowed = {1, 2, 3, 5, 6};
+            m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,allowed}; break;
+        case 4:
+            allowed = {1, 2, 3, 5, 6};
+            m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,allowed}; break;
+        case 5:
+            allowed = {1, 2, 3, 5, 6, 7};
+            m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,allowed}; break;
+        case 6:
+            allowed = {1, 8, 9, 10, 3, 7};
+            m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,allowed}; break;
+        case 7:
+            allowed = {1, 8, 9, 10, 3, 7};
+            m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,allowed}; break;
+        case 8:
+            allowed = {1, 8, 6, 10, 3, 7};
+            m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,allowed}; break;
+        case 9:
+            allowed = {1, 8, 6, 10, 3, 7, 11};
+            m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,allowed}; break;
+        case 10:
+            allowed = {8, 6, 10, 3, 7, 11, 12};
             m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,allowed}; break;
     }
     m_SeedBank->InitCards(allowed);
