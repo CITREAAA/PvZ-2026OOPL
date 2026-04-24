@@ -12,9 +12,12 @@
 #include <algorithm>
 
 void App::Start() {
+    // --- 載入圖片資源 ---
     m_ImgPea = std::make_shared<Util::Image>("resources/image/peashooter/peashooter_1.png");
     m_ImgSun = std::make_shared<Util::Image>("resources/image/sunflower/1.png");
     m_ImgNut = std::make_shared<Util::Image>("resources/image/wallnut/1.png");
+    // 🚩 載入鏟子預覽圖
+    m_ImgShovel = std::make_shared<Util::Image>("resources/image/UI/Shovel.png");
 
     m_MenuBackground = std::make_shared<Util::GameObject>();
     m_MenuBackground->SetDrawable(std::make_shared<Util::Image>("resources/image/menu/menu.png"));
@@ -59,7 +62,16 @@ void App::Start() {
     m_DefeatScreen->SetDrawable(std::make_shared<Util::Image>("resources/image/defeat.png"));
     m_DefeatScreen->m_Transform.translation = {0.0f, 0.0f};
     m_DefeatScreen->m_Transform.scale = {2.5f, 2.5f};
-    m_DefeatScreen->SetVisible(true);
+
+    // --- 🎵 載入所有音訊 ---
+    m_MenuBGM = std::make_shared<Util::BGM>("resources/music/startUIBgm.mp3");
+    m_GameBGM = std::make_shared<Util::BGM>("resources/music/gamingBgm2.mp3");
+    m_SunCollectSFX = std::make_shared<Util::SFX>("resources/music/collectSunshine.wav");
+    m_PlantSeedSFX = std::make_shared<Util::SFX>("resources/music/cardLift.wav");
+    m_PeaHitSFX = std::make_shared<Util::SFX>("resources/music/hit3.wav");
+    m_DefeatSFX = std::make_shared<Util::SFX>("resources/music/gameLose.wav");
+
+    if (m_MenuBGM) m_MenuBGM->Play(-1);
 
     m_CurrentState = State::START;
 }
@@ -80,6 +92,7 @@ void App::Update() {
     glm::vec2 mousePos = Util::Input::GetCursorPosition();
     float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
 
+    // --- [ 狀態 A: 首頁 ] ---
     if (m_CurrentState == State::START) {
         m_MenuBackground->Draw();
         m_StartButton->Draw();
@@ -89,6 +102,7 @@ void App::Update() {
         }
         m_Root.Update();
     }
+    // --- [ 狀態 B: 選關 ] ---
     else if (m_CurrentState == State::SELECT_LEVEL) {
         m_SelectLevelBG->Draw();
         for (int i = 0; i < (int)m_LevelButtons.size(); ++i) {
@@ -100,6 +114,8 @@ void App::Update() {
                     LoadLevelConfig(m_CurrentLevel);
                     m_Root.AddChild(m_Map);
                     m_CurrentState = State::UPDATE;
+                    if (m_MenuBGM) m_MenuBGM->Pause();
+                    if (m_GameBGM) m_GameBGM->Play(-1);
                 }
             } else {
                 m_LevelButtons[i]->m_Transform.scale = {1.0f, 1.0f};
@@ -109,72 +125,91 @@ void App::Update() {
             m_LevelTexts[i]->Draw();
         }
     }
+    // --- [ 狀態 C: 遊戲更新 ] ---
     else if (m_CurrentState == State::UPDATE) {
-        // --- 🚩 優先判斷失敗凍結狀態 ---
+        // --- 🚩 失敗判定與凍結時間 ---
         bool zombieInHouse = false;
         for (auto& z : m_zombies) {
             if (z->GetPosition().x < -450.0f && !z->IsDead()) {
-                zombieInHouse = true;
-                break;
+                zombieInHouse = true; break;
             }
         }
 
         if (zombieInHouse) {
+            if (m_StateTimer == 0.0f) {
+                if (m_DefeatSFX) m_DefeatSFX->Play();
+                if (m_GameBGM) m_GameBGM->Pause();
+            }
             m_StateTimer += dt;
-            // 凍結期間：只做最後的渲染渲染，不做任何移動邏輯
             m_Map->Update();
             m_Root.Update();
             m_SeedBank->DrawUI();
-            if (m_StateTimer >= 2.0f) {
+            if (m_StateTimer >= 1.0f) {
                 m_StateTimer = 0.0f;
                 m_CurrentState = State::DEFEAT;
             }
-            return; // 🚩 強制結束本次 Update，達成畫面卡死效果
+            return;
         }
 
-        // --- 🚩 勝利凍結狀態 ---
+        // --- 🚩 勝利判定與凍結時間 ---
         if (m_ZombiesSpawnedInLevel >= m_TotalZombiesToSpawn && m_zombies.empty()) {
             m_StateTimer += dt;
             m_Map->Update();
             m_Root.Update();
             m_SeedBank->DrawUI();
-            if (m_StateTimer >= 2.0f) {
+            if (m_StateTimer >= 1.0f) {
                 ResetGame();
                 m_CurrentState = State::SELECT_LEVEL;
             }
-            return; // 🚩 強制結束本次 Update
-        } else {
-            m_StateTimer = 0.0f;
+            return;
         }
 
-        // --- 以下為正常遊戲邏輯更新 ---
+        // --- 遊戲邏輯更新 ---
         m_SeedBank->UpdateCooldown(dt);
 
-        // 種植採集邏輯
+        // --- 🚩 放開滑鼠鍵：處理種植或剷除 ---
         if (Util::Input::IsKeyUp(Util::Keycode::MOUSE_LB) && m_SelectedPlantType != 0) {
             int r, c;
             if (m_Map->GetGridIndex(mousePos, r, c)) {
-                std::shared_ptr<Plant> p = nullptr;
-                if (m_SelectedPlantType == 1 && m_SunCurrency >= 100) p = std::make_shared<Peashooter>(0, 0);
-                else if (m_SelectedPlantType == 2 && m_SunCurrency >= 50) p = std::make_shared<Sunflower>(0, 0);
-                else if (m_SelectedPlantType == 3 && m_SunCurrency >= 50) p = std::make_shared<Wallnut>(0, 0);
-                if (p && m_Map->PlacePlant(r, c, p)) {
-                    m_SunCurrency -= (m_SelectedPlantType == 1) ? 100 : 50;
-                    m_Root.AddChild(p);
-                    m_SeedBank->StartCooldown(m_SelectedPlantType);
+                if (m_SelectedPlantType == 4) {
+                    // 🚩 鏟子邏輯
+                    auto p = m_Map->GetPlant(r, c);
+                    if (p) {
+                        m_Root.RemoveChild(p);
+                        m_Map->RemovePlant(r, c);
+                        LOG_DEBUG("Plant shoveled at {}, {}", r, c);
+                    }
+                } else {
+                    // 植物種植邏輯
+                    std::shared_ptr<Plant> p = nullptr;
+                    if (m_SelectedPlantType == 1 && m_SunCurrency >= 100) p = std::make_shared<Peashooter>(0, 0);
+                    else if (m_SelectedPlantType == 2 && m_SunCurrency >= 50) p = std::make_shared<Sunflower>(0, 0);
+                    else if (m_SelectedPlantType == 3 && m_SunCurrency >= 50) p = std::make_shared<Wallnut>(0, 0);
+                    if (p && m_Map->PlacePlant(r, c, p)) {
+                        m_SunCurrency -= (m_SelectedPlantType == 1) ? 100 : 50;
+                        m_Root.AddChild(p);
+                        m_SeedBank->StartCooldown(m_SelectedPlantType);
+                        if (m_PlantSeedSFX) m_PlantSeedSFX->Play();
+                    }
                 }
             }
+            // 🚩 無論如何都要還原鏟子與狀態
             m_SelectedPlantType = 0;
             m_DragPreview->SetVisible(false);
+            m_SeedBank->SetShovelVisible(true);
         }
+        // --- 🚩 按下滑鼠鍵：選擇植物或鏟子 ---
         else if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB)) {
             bool actionHandled = false;
+            // 優先檢查陽光採集
             for (auto it = m_Suns.begin(); it != m_Suns.end(); ) {
                 if ((*it)->IsClicked(mousePos)) {
                     m_SunCurrency += 25; (*it)->Collect(); m_Root.RemoveChild(*it);
+                    if (m_SunCollectSFX) m_SunCollectSFX->Play();
                     it = m_Suns.erase(it); actionHandled = true; break;
                 } else ++it;
             }
+            // 選擇工具欄物件
             if (!actionHandled && m_SelectedPlantType == 0) {
                 int type = m_SeedBank->GetSelectedType(mousePos);
                 if (type != 0) {
@@ -182,6 +217,10 @@ void App::Update() {
                     if (type == 1)      m_DragPreview->SetDrawable(m_ImgPea);
                     else if (type == 2) m_DragPreview->SetDrawable(m_ImgSun);
                     else if (type == 3) m_DragPreview->SetDrawable(m_ImgNut);
+                    else if (type == 4) {
+                        m_DragPreview->SetDrawable(m_ImgShovel);
+                        m_SeedBank->SetShovelVisible(false); // 🚩 拿起鏟子，工具欄變空
+                    }
                     m_DragPreview->SetVisible(true);
                 }
             }
@@ -205,7 +244,9 @@ void App::Update() {
             bool peaHit = false;
             for (auto& z : m_zombies) {
                 if (!z->IsDead() && glm::distance((*it)->GetPosition(), z->GetPosition()) < 40.0f) {
-                    z->TakeDamage(20); peaHit = true; break;
+                    z->TakeDamage(20);
+                    if (m_PeaHitSFX) m_PeaHitSFX->Play();
+                    peaHit = true; break;
                 }
             }
             if (peaHit || (*it)->IsOffScreen()) { m_Root.RemoveChild(*it); it = m_Peas.erase(it); } else ++it;
@@ -215,17 +256,18 @@ void App::Update() {
             z->Update(dt);
             auto head = z->SpawnHead();
             if (head) { m_ZombieHeads.push_back(head); m_Root.AddChild(head); }
-
             if (z->IsDead()) continue;
             int r, c;
             if (m_Map->GetGridIndex(z->GetPosition() + glm::vec2{-25, 0}, r, c)) {
                 auto p = m_Map->GetPlant(r, c);
-                if (p) { z->SetState(Zombie::State::EATING); p->TakeDamage(static_cast<int>(200 * dt)); }
+                if (p) {
+                    z->SetState(Zombie::State::EATING);
+                    p->TakeDamage(static_cast<int>(z->GetAttackPower() * dt));
+                }
                 else if (z->GetState() == Zombie::State::EATING) z->SetState(Zombie::State::WALKING);
             }
         }
 
-        // 生成殭屍
         if (m_ZombiesSpawnedInLevel < m_TotalZombiesToSpawn) {
             m_ZombieSpawnTimer += dt;
             if (m_ZombieSpawnTimer > m_CurrentLevelConfig.spawnInterval) {
@@ -252,7 +294,6 @@ void App::Update() {
             skySunTimer = 0.0f;
         }
 
-        // 清理邏輯
         for (auto it = m_ZombieHeads.begin(); it != m_ZombieHeads.end(); ) {
             (*it)->Update(dt);
             if ((*it)->CanRemove()) { m_Root.RemoveChild(*it); it = m_ZombieHeads.erase(it); } else ++it;
@@ -272,9 +313,14 @@ void App::Update() {
         m_SeedBank->SetSunCount(m_SunCurrency);
         m_SeedBank->DrawUI();
     }
+    // --- [ 狀態 D: 失敗畫面 ] ---
     else if (m_CurrentState == State::DEFEAT) {
         if (m_DefeatScreen) m_DefeatScreen->Draw();
-        if (Util::Input::IsKeyDown(Util::Keycode::SPACE)) { ResetGame(); m_CurrentState = State::START; }
+        m_StateTimer += dt;
+        if (m_StateTimer >= 3.0f) {
+            ResetGame();
+            m_CurrentState = State::SELECT_LEVEL;
+        }
     }
 
     if (Util::Input::IsKeyUp(Util::Keycode::ESCAPE) || Util::Input::IfExit()) m_CurrentState = State::END;
@@ -293,11 +339,12 @@ void App::ResetGame() {
             if (p) { m_Root.RemoveChild(p); m_Map->RemovePlant(r, c); }
         }
     }
-    m_SunCurrency = 50;
-    m_SelectedPlantType = 0;
+    m_SunCurrency = 50; m_SelectedPlantType = 0;
     m_DragPreview->SetVisible(false);
-    m_ZombiesSpawnedInLevel = 0;
-    m_StateTimer = 0.0f;
+    m_ZombiesSpawnedInLevel = 0; m_StateTimer = 0.0f;
+    m_SeedBank->SetShovelVisible(true); // 🚩 重置時確保鏟子顯示
+    if (m_GameBGM) m_GameBGM->Pause();
+    if (m_MenuBGM) m_MenuBGM->Play(-1);
 }
 
 void App::UpdatePlantActions() {

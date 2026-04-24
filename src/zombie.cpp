@@ -1,6 +1,7 @@
 #include "Zombie.hpp"
 #include "Util/Time.hpp"
 #include "Util/Logger.hpp"
+#include "Util/SFX.hpp"
 #include <filesystem>
 #include <algorithm>
 #include <string>
@@ -67,6 +68,8 @@ Zombie::Zombie(float x, float y, Type type) : GameEntity("", 270.0f), m_Type(typ
     } else {
         m_ArmorHP = 0.0f;    // 普通殭屍
     }
+    m_EatSFX = std::make_shared<Util::SFX>("resources/music/zombieChomp.wav");
+    //m_GroanSFX = std::make_shared<Util::SFX>("resources/audio/zombieAppearGroan4.wav");
     m_HP = 270.0f; // 強制初始化血量
     UpdateAnimation();
 }
@@ -79,6 +82,16 @@ void Zombie::Update(float dt) {
         return;
     }
 
+    if (m_CurrentState == State::EATING) {
+        m_EatSoundTimer -= dt;
+        if (m_EatSoundTimer <= 0.0f) {
+            if (m_EatSFX) m_EatSFX->Play();
+            m_EatSoundTimer = 0.6f; // 每 0.6 秒響一次
+        }
+    } else {
+        m_EatSoundTimer = 0.0f; // 如果沒在吃，計時器歸零
+    }
+
     // 2. 斷頭流血與致死檢查 (核心：只要血量 <= 0 絕對要倒下)
     if (m_IsDecapitated || m_CurrentState == State::DYING) {
         m_HP -= 60.0f * dt;
@@ -88,7 +101,7 @@ void Zombie::Update(float dt) {
         m_HP = 0.0f;
         LOG_DEBUG("Zombie HP is 0. Forcing DEAD state.");
         SetState(State::DEAD);
-        return; // 切換到 DEAD 後立刻跳出，交給下一幀的 DEAD 邏輯處理
+        return; // 切換到 DEAD 後立刻跳出
     }
 
     // 3. 移動邏輯
@@ -179,7 +192,6 @@ void Zombie::UpdateAnimation() {
         return;
     }
 
-    // 🚩 reset = true 確保切換瞬間從第一幀開始
     m_Animation = std::make_shared<Util::Animation>(frames, loop, interval, true);
     m_Drawable = m_Animation;
 

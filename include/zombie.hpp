@@ -4,6 +4,7 @@
 #include "GameEntity.hpp"
 #include "Util/Animation.hpp"
 #include "Util/GameObject.hpp"
+#include "Util/SFX.hpp"
 #include <memory>
 #include <vector>
 #include <string>
@@ -36,6 +37,8 @@ public:
     // 🚩 建構子加入種類參數，預設為普通殭屍
     Zombie(float x, float y, Type type = Type::NORMAL);
 
+    float GetAttackPower() const { return m_AttackPower; }
+
     void TakeDamage(int damage);
     void Update(float dt);
 
@@ -52,11 +55,16 @@ public:
 
 private:
     Type m_Type;             // 殭屍種類
-    float m_ArmorHP = 0.0f;  // 裝甲生命值 (三角錐 370)
-    float m_HP = 270.0f;     // 本體生命值 (普通殭屍 270)
+    float m_ArmorHP = 0.0f;  // 裝甲生命值
+    float m_HP = 270.0f;     // 本體生命值
     float m_Speed = 14.4f;
+    float m_AttackPower = 100.0f;
 
     float m_DeathTimer = 0.0f;
+
+    std::shared_ptr<Util::SFX> m_EatSFX;
+    //std::shared_ptr<Util::SFX> m_GroanSFX;
+    float m_EatSoundTimer = 0.0f;
 
     State m_CurrentState = State::WALKING;
 

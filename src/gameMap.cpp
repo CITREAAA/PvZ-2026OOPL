@@ -84,7 +84,6 @@ std::shared_ptr<Plant> GameMap::GetPlant(int r, int c) {
 void GameMap::RemovePlant(int r, int c) {
     if (r >= 0 && r < 5 && c >= 0 && c < 9) {
         if (m_Grids[r][c] != nullptr) {
-            // 🚩 修正 2：手動移除時也要確保從渲染樹拔掉
             this->RemoveChild(m_Grids[r][c]);
             m_Grids[r][c] = nullptr;
         }

@@ -12,6 +12,8 @@
 #include "Util/GameObject.hpp"
 #include "Util/Image.hpp"
 #include "Util/Text.hpp"
+#include "Util/BGM.hpp"
+#include "Util/SFX.hpp"
 #include <vector>
 #include <memory>
 
@@ -33,6 +35,7 @@ public:
     void End();
 
 private:
+
     struct LevelConfig {
         int totalZombies;
         float spawnInterval;
@@ -79,15 +82,25 @@ private:
     int m_SunCurrency = 50;
 
     // --- UI 與 拖曳系統 ---
+    std::shared_ptr<Util::Image> m_ImgShovel;
     std::shared_ptr<SeedBank> m_SeedBank;
     std::shared_ptr<Util::GameObject> m_DragPreview;
     int m_SelectedPlantType = 0;
 
     std::shared_ptr<Util::GameObject> m_DefeatScreen;
 
+    // --- 音訊系統 ---
+    std::shared_ptr<Util::BGM> m_MenuBGM;
+    std::shared_ptr<Util::BGM> m_GameBGM;
+    std::shared_ptr<Util::SFX> m_SunCollectSFX; // 收集陽光
+    std::shared_ptr<Util::SFX> m_PlantSeedSFX;  // 種下植物
+    std::shared_ptr<Util::SFX> m_PeaHitSFX;     // 豌豆打到殭屍 (給 App.cpp 判定碰撞用)
+    std::shared_ptr<Util::SFX> m_DefeatSFX;
+
     void ResetGame();
-    void UpdatePlantActions();
     void LoadLevelConfig(int level);
+    void UpdatePlantActions();
+    void ValidTask();
 };
 
 #endif

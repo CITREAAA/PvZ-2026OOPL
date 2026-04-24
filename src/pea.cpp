@@ -9,6 +9,6 @@ Pea::Pea(float x, float y) {
 }
 
 void Pea::Update(float dt) {
-    float speed = 400.0f;
-    m_Transform.translation.x += speed * static_cast<float>(Util::Time::GetDeltaTime());
+    float speed = 450.0f;
+    m_Transform.translation.x += speed * dt;
 }
