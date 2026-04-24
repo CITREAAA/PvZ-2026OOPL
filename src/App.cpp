@@ -73,7 +73,6 @@ void App::Start() {
     m_DefeatSFX = std::make_shared<Util::SFX>("resources/music/gameLose.wav");
 
     if (m_MenuBGM) m_MenuBGM->Play(-1);
-    ResetGame();
     m_CurrentState = State::START;
 }
 
@@ -143,6 +142,7 @@ void App::Update() {
                 if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB)) {
                     m_CurrentLevel = i + 1;
                     LoadLevelConfig(m_CurrentLevel);
+                    ResetGame();
                     m_Root.AddChild(m_Map);
                     m_CurrentState = State::UPDATE;
                     if (m_MenuBGM) m_MenuBGM->Pause();
