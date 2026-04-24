@@ -52,6 +52,7 @@ private:
         int weightNormal;
         int weightCone;
         int weightBucket;
+        std::vector<int> allowedPlants;
     };
 
     float m_StateTimer = 0.0f;
