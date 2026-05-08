@@ -192,3 +192,46 @@ void SnowPea::Update(float dt) {
 }
 
 Plant::Type SnowPea::GetType() const { return Plant::Type::SNOWPEA; }
+
+
+// --- CherryBomb ---
+CherryBomb::CherryBomb(float x, float y) : Plant({}, 300, 150) {
+    m_Transform.translation = {x, y};
+    m_ZIndex = 65; // 層級提高，確保蓋在殭屍上方
+
+    auto paths = GetFramesFromFolder("resources/image/cherrybomb");
+    if (!paths.empty()) {
+        // 1秒後要爆炸，共有8幀，所以每幀間隔 1000ms / 8 = 125ms
+        // 設定不循環播放 loop = false
+        m_Animation = std::make_shared<Util::Animation>(paths, false, 125, true);
+        SetDrawable(m_Animation);
+    }
+}
+
+// 在 Plant.cpp 中
+void CherryBomb::Update(float dt) {
+    m_Timer += dt;
+
+    // 🚩 原本這裡有 TakeDamage(9999)，把它刪除
+    // if (m_Timer >= 1.2f) { TakeDamage(9999); }
+
+    // 🚩 改成在 1.0 秒爆炸瞬間，把圖片換成靜態的爆炸圖 (第8幀)
+    // 這樣它就不會因為動畫結束而變成透明或消失
+    if (m_Timer >= 1.0f && !m_Exploded) {
+        m_Exploded = true;
+        if (m_Animation) {
+            // 🚩 讓它定格在最後一幀 (第 8 幀，索引值是 7)
+            m_Animation->SetCurrentFrame(m_Animation->GetFrameCount() - 1);
+
+            // 🚩 如果沒有 Stop()，我們把幀間隔設成 100 萬毫秒，它就會看起來像停住了
+            m_Animation->SetInterval(1000000);
+        }
+    }
+
+    // 🚩 2.0 秒後徹底移除
+    if (m_Timer >= 2.0f) {
+        m_HP = 0; // 徹底死亡，讓 App.cpp 移除它
+    }
+}
+
+Plant::Type CherryBomb::GetType() const { return Plant::Type::CHERRYBOMB; }

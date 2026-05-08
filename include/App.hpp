@@ -107,6 +107,7 @@ private:
     std::shared_ptr<Util::Image> m_ImgPotatoMine;
     std::shared_ptr<Util::Image> m_ImgShovel;
     std::shared_ptr<Util::Image> m_ImgSnowPea;
+    std::shared_ptr<Util::Image> m_ImgCherry;
 
     // 選單與關卡 UI
     std::shared_ptr<Util::GameObject> m_MenuBackground;
@@ -138,6 +139,7 @@ private:
     std::shared_ptr<Util::SFX> m_PeaHitSFX;
     std::shared_ptr<Util::SFX> m_DefeatSFX;
     std::shared_ptr<Util::SFX> m_LawnMowerSFX;
+    std::shared_ptr<Util::SFX> m_ExplodeSFX;
 };
 
 #endif

@@ -22,6 +22,8 @@ void App::Start() {
     m_ImgShovel = std::make_shared<Util::Image>("resources/image/UI/Shovel.png");
     m_ImgPotatoMine = std::make_shared<Util::Image>("resources/image/potatomine/underground/underground.png");
     m_ImgSnowPea = std::make_shared<Util::Image>("resources/image/snowpea/1.png");
+    // 🚩 修正：預覽圖通常使用動畫的第一幀
+    m_ImgCherry = std::make_shared<Util::Image>("resources/image/cherrybomb/1.png");
 
     m_MenuBackground = std::make_shared<Util::GameObject>();
     m_MenuBackground->SetDrawable(std::make_shared<Util::Image>("resources/image/menu/menu.png"));
@@ -73,6 +75,7 @@ void App::Start() {
     m_PlantSeedSFX = std::make_shared<Util::SFX>("resources/music/cardLift.wav");
     m_PeaHitSFX = std::make_shared<Util::SFX>("resources/music/hit3.wav");
     m_DefeatSFX = std::make_shared<Util::SFX>("resources/music/gameLose.wav");
+    m_ExplodeSFX = std::make_shared<Util::SFX>("resources/music/cherrybomb.wav"); // 🚩 爆炸音效
 
     if (m_MenuBGM) m_MenuBGM->Play(-1);
     m_CurrentState = State::START;
@@ -100,7 +103,6 @@ void App::Update() {
 void App::UpdateStartState(glm::vec2 mousePos) {
     m_MenuBackground->Draw();
     m_StartButton->Draw();
-    // 🚩 修正：首頁點擊按鈕應跳轉至關卡選擇頁面，而非直接進關卡
     if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB)) {
         if (mousePos.x > 50 && mousePos.x < 370 && mousePos.y > 80 && mousePos.y < 180)
             m_CurrentState = State::SELECT_LEVEL;
@@ -116,11 +118,9 @@ void App::UpdateSelectLevelState(glm::vec2 mousePos) {
             m_LevelTexts[i]->m_Transform.scale = {1.1f, 1.1f};
             if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB)) {
                 m_CurrentLevel = i + 1;
-                // 🚩 先移除舊地圖
                 m_Root.RemoveChild(m_Map);
                 LoadLevelConfig(m_CurrentLevel);
                 ResetGame();
-                // 🚩 加入新地圖
                 m_Root.AddChild(m_Map);
                 m_CurrentState = State::UPDATE;
                 if (m_MenuBGM) m_MenuBGM->Pause();
@@ -188,6 +188,7 @@ void App::HandleInput(glm::vec2 mousePos) {
                 else if (type == 4) { m_DragPreview->SetDrawable(m_ImgShovel); m_SeedBank->SetShovelVisible(false); }
                 else if (type == 5) m_DragPreview->SetDrawable(m_ImgPotatoMine);
                 else if (type == 6) m_DragPreview->SetDrawable(m_ImgSnowPea);
+                else if (type == 7) m_DragPreview->SetDrawable(m_ImgCherry); // 🚩 補上櫻桃預覽
                 m_DragPreview->SetVisible(true);
             }
         }
@@ -241,6 +242,23 @@ void App::UpdatePlants(float dt) {
                             mine->Trigger();
                             z->TakeDamage(1800);
                             break;
+                        }
+                    }
+                }
+            }
+            else if (auto cherry = std::dynamic_pointer_cast<CherryBomb>(plant)) {
+                // 🚩 櫻桃炸彈爆炸判定
+                if (cherry->LogicReady()) {
+                    if (m_ExplodeSFX) m_ExplodeSFX->Play(); // 播放音效
+                    for (auto& z : m_zombies) {
+                        if (z->IsDead()) continue;
+                        float dist = glm::distance(cherry->GetPosition(), z->GetPosition());
+                        int zRow, zCol;
+                        if (m_Map->GetGridIndex(z->GetPosition(), zRow, zCol)) {
+                            // 半徑 115 且上下共三條路判定
+                            if (dist <= 115.0f && std::abs(zRow - r) <= 1) {
+                                z->TakeDamage(1800);
+                            }
                         }
                     }
                 }
@@ -334,13 +352,11 @@ void App::UpdateLawnMowers(float dt) {
 }
 
 void App::UpdateSuns(float dt) {
-    // 🚩 修正：先更新現有陽光，不受關卡限制
     for (auto& sun : m_Suns) sun->Update(dt);
     m_Suns.erase(std::remove_if(m_Suns.begin(), m_Suns.end(), [this](const std::shared_ptr<Sun>& s) {
         if (s->ShouldRemove()) { m_Root.RemoveChild(s); return true; } return false;
     }), m_Suns.end());
 
-    // 🚩 只有白天(1~5關)會掉陽光
     if (m_CurrentLevel < 6) {
         skySunTimer += dt;
         if (skySunTimer > 13.0f) {
@@ -370,6 +386,7 @@ void App::ExecutePlanting(glm::vec2 mousePos) {
             else if (m_SelectedPlantType == 3 && m_SunCurrency >= 50) { p = std::make_shared<Wallnut>(0, 0); cost = 50; }
             else if (m_SelectedPlantType == 5 && m_SunCurrency >= 25) { p = std::make_shared<PotatoMine>(0, 0); cost = 25; }
             else if (m_SelectedPlantType == 6 && m_SunCurrency >= 175) { p = std::make_shared<SnowPea>(0, 0); cost = 175; }
+            else if (m_SelectedPlantType == 7 && m_SunCurrency >= 150) { p = std::make_shared<CherryBomb>(0, 0); cost = 150; }
 
             if (p && m_Map->PlacePlant(r, c, p)) {
                 m_SunCurrency -= cost; m_Root.AddChild(p);
@@ -438,23 +455,25 @@ void App::ResetGame() {
 
 void App::LoadLevelConfig(int level) {
     std::string mapPath;
+    float mapScale; // 🚩 宣告型別
+
     if (level >= 6 && level <= 10) {
         mapPath = "resources/image/map_night.jpg";
-        mapScale = 2.0f; //
+        mapScale = 1.0f; // 🚩 夜晚圖大，用 1.0f
     } else {
         mapPath = "resources/image/map.jpg";
         mapScale = 2.0f;
     }
     m_Map = std::make_shared<GameMap>(mapPath);
-    m_Map->m_Transform.scale = {mapScale, mapScale}; // 套用動態縮放
+    m_Map->m_Transform.scale = {mapScale, mapScale};
     m_Map->SetZIndex(0);
 
     std::vector<int> allowed;
     switch (level) {
-        case 1: allowed = {1, 2, 3, 6}; m_CurrentLevelConfig = {15, 8.0f, 70, 20, 10, allowed}; break;
-        case 2: allowed = {1, 2, 3, 5}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
-        case 3: allowed= {1, 2, 3, 5, 6}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
-        case 4: allowed= {1, 2, 3, 5, 6}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
+        case 1: allowed = {1, 2, 3, 5, 6, 7}; m_CurrentLevelConfig = {15, 8.0f, 70, 20, 10, allowed}; break;
+        case 2: allowed = {1, 2, 3, 5, 7}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
+        case 3: allowed= {1, 2, 3, 5, 6, 7}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
+        case 4: allowed= {1, 2, 3, 5, 6, 7}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
         case 5: allowed= {1, 2, 3, 5, 6, 7}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
         case 6: allowed= {1, 3, 7, 8, 9, 10}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
         case 7: allowed= {1, 3, 6, 7, 8, 9}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;

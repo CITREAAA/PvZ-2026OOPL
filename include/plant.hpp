@@ -71,7 +71,6 @@ private:
     int m_CurrentStage = 1;
 };
 
-// --- PotatoMine ---
 class PotatoMine : public Plant {
 public:
     enum class MineState { UNDERGROUND, READY, EXPLODING };
@@ -102,6 +101,30 @@ public:
 private:
     float m_FireTimer = 0.0f;
     bool m_ShouldFire = false;
+};
+
+// --- CherryBomb ---
+class CherryBomb : public Plant {
+public:
+    CherryBomb(float x, float y);
+    void Update(float dt) override;
+
+    // 🚩 讓 App.cpp 呼叫，判定「現在這瞬間」要不要算傷害
+    bool LogicReady() {
+        // 如果時間到了 (1秒) 且還沒觸發過傷害
+        if (m_Timer >= 1.0f && !m_LogicTriggered) {
+            m_LogicTriggered = true; // 鎖定，下次就不會再回傳 true
+            return true;
+        }
+        return false;
+    }
+
+    Type GetType() const override;
+
+private:
+    float m_Timer = 0.0f;
+    bool m_LogicTriggered = false; // 專門控制傷害結算
+    bool m_Exploded = false;
 };
 
 #endif
