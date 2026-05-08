@@ -169,3 +169,26 @@ void PotatoMine::Trigger() {
 }
 
 Plant::Type PotatoMine::GetType() const { return Plant::Type::MINE; }
+
+// --- SnowPea ---
+SnowPea::SnowPea(float x, float y) : Plant({}, 270, 175) {
+    m_Transform.translation = {x, y};
+    m_ZIndex = 10;
+    // 假設動畫資源放在 resources/image/snowpea
+    auto paths = GetFramesFromFolder("resources/image/snowpea");
+    if (!paths.empty()) {
+        m_Animation = std::make_shared<Util::Animation>(paths, true, 150, true);
+        m_Drawable = m_Animation;
+    }
+}
+
+void SnowPea::Update(float dt) {
+    m_FireTimer += dt;
+    // 雪花豌豆射速通常與普通豌豆一致 (約 1.45 秒)
+    if (m_FireTimer >= 1.45f) {
+        m_ShouldFire = true;
+        m_FireTimer = 0.0f;
+    }
+}
+
+Plant::Type SnowPea::GetType() const { return Plant::Type::SNOWPEA; }

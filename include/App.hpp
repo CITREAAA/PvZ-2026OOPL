@@ -90,8 +90,10 @@ private:
     State m_CurrentState = State::START;
     Util::Renderer m_Root;
     float m_StateTimer = 0.0f;
+    float skySunTimer = 0.0f;
 
     // 關卡配置
+    int mapScale = 1.0f;
     int m_CurrentLevel = 0;
     int m_ZombiesSpawnedInLevel = 0;
     int m_TotalZombiesToSpawn = 0;
@@ -104,6 +106,7 @@ private:
     std::shared_ptr<Util::Image> m_ImgNut;
     std::shared_ptr<Util::Image> m_ImgPotatoMine;
     std::shared_ptr<Util::Image> m_ImgShovel;
+    std::shared_ptr<Util::Image> m_ImgSnowPea;
 
     // 選單與關卡 UI
     std::shared_ptr<Util::GameObject> m_MenuBackground;

@@ -2,6 +2,7 @@
 #include "Util/Time.hpp"
 #include "Util/Logger.hpp"
 #include "Util/SFX.hpp"
+#include "Util/Color.hpp"
 #include <filesystem>
 #include <algorithm>
 #include <string>
@@ -62,60 +63,76 @@ Zombie::Zombie(float x, float y, Type type) : GameEntity("", 270.0f), m_Type(typ
     m_Transform.translation = {x, y};
     m_ZIndex = 50;
     if (m_Type == Type::BUCKETHEAD) {
-        m_ArmorHP = 1100.0f; // 鐵桶 HP
+        m_ArmorHP = 1100.0f;
     } else if (m_Type == Type::CONEHEAD) {
-        m_ArmorHP = 370.0f;  // 三角錐 HP
+        m_ArmorHP = 370.0f;
     } else {
-        m_ArmorHP = 0.0f;    // 普通殭屍
+        m_ArmorHP = 0.0f;
     }
     m_EatSFX = std::make_shared<Util::SFX>("resources/music/zombieChomp.wav");
-    //m_GroanSFX = std::make_shared<Util::SFX>("resources/audio/zombieAppearGroan4.wav");
-    m_HP = 270.0f; // 強制初始化血量
+    m_HP = 270.0f;
+    m_BaseAnimInterval = 120; // 🚩 設定基準動畫速度
     UpdateAnimation();
 }
 
 void Zombie::Update(float dt) {
-
-    // 1. 如果已經進入 DEAD 狀態，只跑計時器，不跑任何邏輯
+    // 1. 死亡狀態檢查
     if (m_CurrentState == State::DEAD) {
         if (m_DeathTimer > 0.0f) m_DeathTimer -= dt;
         return;
     }
 
+    // 🚩 2. 處理減速狀態與計時
+    if (m_IsSlowed) {
+        m_SlowTimer -= dt;
+        if (m_SlowTimer <= 0.0f) {
+            m_IsSlowed = false;
+            m_SlowTimer = 0.0f;
+            // 恢復原本顏色與動畫速度
+            if (m_Animation) {
+                m_Animation->SetInterval(m_BaseAnimInterval);
+            }
+        } else {
+            if (m_Animation) {
+                m_Animation->SetInterval(m_BaseAnimInterval * 2);
+            }
+        }
+    }
+
+    // 3. 處理啃食音效
     if (m_CurrentState == State::EATING) {
         m_EatSoundTimer -= dt;
         if (m_EatSoundTimer <= 0.0f) {
             if (m_EatSFX) m_EatSFX->Play();
-            m_EatSoundTimer = 0.6f; // 每 0.6 秒響一次
+            m_EatSoundTimer = 0.6f;
         }
     } else {
-        m_EatSoundTimer = 0.0f; // 如果沒在吃，計時器歸零
+        m_EatSoundTimer = 0.0f;
     }
 
-    // 2. 斷頭流血與致死檢查 (核心：只要血量 <= 0 絕對要倒下)
+    // 4. 致死與流血邏輯
     if (m_IsDecapitated || m_CurrentState == State::DYING) {
         m_HP -= 60.0f * dt;
     }
 
     if (m_HP <= 0.0f) {
         m_HP = 0.0f;
-        LOG_DEBUG("Zombie HP is 0. Forcing DEAD state.");
+        LOG_DEBUG("Zombie DEAD.");
         SetState(State::DEAD);
-        return; // 切換到 DEAD 後立刻跳出
+        return;
     }
 
-    // 3. 移動邏輯
+    // 5. 移動邏輯 (受減速影響)
     if (m_CurrentState == State::WALKING || m_CurrentState == State::DYING) {
-        m_Transform.translation.x -= m_Speed * dt;
+        float actualSpeed = m_IsSlowed ? (m_Speed * 0.5f) : m_Speed;
+        m_Transform.translation.x -= actualSpeed * dt;
     }
 }
 
 void Zombie::TakeDamage(int damage) {
     if (m_CurrentState == State::DEAD) return;
-
     float dmg = static_cast<float>(damage);
 
-    // 裝甲處理
     if (m_ArmorHP > 0.0f) {
         m_ArmorHP -= dmg;
         if (m_ArmorHP <= 0.0f) {
@@ -128,11 +145,8 @@ void Zombie::TakeDamage(int damage) {
         }
     }
 
-    // 本體處理
     if (dmg > 0.0f) {
         m_HP -= dmg;
-        LOG_DEBUG("Zombie HP remaining: {}", m_HP);
-
         if (m_HP <= 0.0f) {
             m_HP = 0.0f;
             SetState(State::DEAD);
@@ -144,9 +158,7 @@ void Zombie::TakeDamage(int damage) {
 }
 
 void Zombie::SetState(State state) {
-    LOG_DEBUG("SetState called: {} -> {}", (int)m_CurrentState, (int)state);
-    if (m_CurrentState == state) return;
-    if (m_CurrentState == State::DEAD) return;
+    if (m_CurrentState == state || m_CurrentState == State::DEAD) return;
     m_CurrentState = state;
     UpdateAnimation();
 }
@@ -159,9 +171,8 @@ void Zombie::UpdateAnimation() {
     if (m_CurrentState == State::DEAD) {
         path = "resources/image/zombie/normal_zombie/die/ZombieDie";
         interval = 150;
-        auto frames = GetFramesFromFolder(path);
+        loop = false; // 死亡動畫不循環
     }
-
     else if (m_CurrentState == State::DYING) {
         path = "resources/image/zombie/normal_zombie/die/ZombieLostHead";
     }
@@ -183,21 +194,22 @@ void Zombie::UpdateAnimation() {
     }
 
     auto frames = GetFramesFromFolder(path);
-    LOG_DEBUG("UpdateAnimation called, state: {}, path: {}, frames: {}",
-              (int)m_CurrentState, path, frames.size());
-
     if (frames.empty()) {
-        LOG_ERROR("ANIMATION ERROR: Folder is empty or wrong path: {}", path);
-        if (m_CurrentState == State::DEAD) m_DeathTimer = 1.0f;
+        LOG_ERROR("ANIMATION ERROR: {}", path);
         return;
     }
 
-    m_Animation = std::make_shared<Util::Animation>(frames, loop, interval, true);
+    // 更新基準間隔
+    m_BaseAnimInterval = interval;
+
+    // 🚩 若在減速狀態下切換動畫，立即套用兩倍間隔
+    int actualInterval = m_IsSlowed ? (interval * 2) : interval;
+
+    m_Animation = std::make_shared<Util::Animation>(frames, loop, actualInterval, true);
     m_Drawable = m_Animation;
 
     if (m_CurrentState == State::DEAD) {
         m_DeathTimer = (frames.size() * interval) / 1000.0f;
-        LOG_DEBUG("Zombie DEAD: Playing animation, will be removed in {}s", m_DeathTimer);
     }
 }
 
@@ -207,4 +219,12 @@ std::shared_ptr<ZombieHead> Zombie::SpawnHead() {
         return std::make_shared<ZombieHead>(m_Transform.translation.x + 10.0f, m_Transform.translation.y + 10.0f, m_Transform.translation.y - 100.0f);
     }
     return nullptr;
+}
+
+void Zombie::SlowDown(float duration) {
+    m_IsSlowed = true;
+    m_SlowTimer = duration;
+    if (m_Animation) {
+        m_Animation->SetInterval(m_BaseAnimInterval * 2);
+    }
 }

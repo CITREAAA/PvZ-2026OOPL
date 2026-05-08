@@ -44,6 +44,7 @@ public:
 
     bool IsDead() const { return m_CurrentState == State::DEAD; }
     bool IsDying() const { return m_CurrentState == State::DYING; }
+    void SlowDown(float duration);
 
     void SetState(State state);
     State GetState() const { return m_CurrentState; }
@@ -71,6 +72,12 @@ private:
     bool m_IsLostArm = false;
     bool m_IsDecapitated = false;
     bool m_HeadHandedOut = false;
+
+    float m_SlowTimer = 0.0f;
+    bool m_IsSlowed = false;
+    float m_BaseSpeed = 40.0f;
+
+    int m_BaseAnimInterval = 120;
 
     std::shared_ptr<Util::Animation> m_Animation;
     void UpdateAnimation();

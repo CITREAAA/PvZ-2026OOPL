@@ -16,14 +16,13 @@
 // =============================================================================
 
 void App::Start() {
-    // 載入基本圖片預覽資源
     m_ImgPea = std::make_shared<Util::Image>("resources/image/peashooter/peashooter_1.png");
     m_ImgSun = std::make_shared<Util::Image>("resources/image/sunflower/1.png");
     m_ImgNut = std::make_shared<Util::Image>("resources/image/wallnut/1.png");
     m_ImgShovel = std::make_shared<Util::Image>("resources/image/UI/Shovel.png");
     m_ImgPotatoMine = std::make_shared<Util::Image>("resources/image/potatomine/underground/underground.png");
+    m_ImgSnowPea = std::make_shared<Util::Image>("resources/image/snowpea/1.png");
 
-    // 初始化選單 UI
     m_MenuBackground = std::make_shared<Util::GameObject>();
     m_MenuBackground->SetDrawable(std::make_shared<Util::Image>("resources/image/menu/menu.png"));
     m_MenuBackground->SetZIndex(10);
@@ -68,7 +67,6 @@ void App::Start() {
     m_DefeatScreen->m_Transform.translation = {0.0f, 0.0f};
     m_DefeatScreen->m_Transform.scale = {2.5f, 2.5f};
 
-    // 音訊載入
     m_MenuBGM = std::make_shared<Util::BGM>("resources/music/startUIBgm.mp3");
     m_GameBGM = std::make_shared<Util::BGM>("resources/music/gamingBgm2.mp3");
     m_SunCollectSFX = std::make_shared<Util::SFX>("resources/music/collectSunshine.wav");
@@ -102,6 +100,7 @@ void App::Update() {
 void App::UpdateStartState(glm::vec2 mousePos) {
     m_MenuBackground->Draw();
     m_StartButton->Draw();
+    // 🚩 修正：首頁點擊按鈕應跳轉至關卡選擇頁面，而非直接進關卡
     if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB)) {
         if (mousePos.x > 50 && mousePos.x < 370 && mousePos.y > 80 && mousePos.y < 180)
             m_CurrentState = State::SELECT_LEVEL;
@@ -117,8 +116,11 @@ void App::UpdateSelectLevelState(glm::vec2 mousePos) {
             m_LevelTexts[i]->m_Transform.scale = {1.1f, 1.1f};
             if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB)) {
                 m_CurrentLevel = i + 1;
+                // 🚩 先移除舊地圖
+                m_Root.RemoveChild(m_Map);
                 LoadLevelConfig(m_CurrentLevel);
                 ResetGame();
+                // 🚩 加入新地圖
                 m_Root.AddChild(m_Map);
                 m_CurrentState = State::UPDATE;
                 if (m_MenuBGM) m_MenuBGM->Pause();
@@ -140,7 +142,7 @@ void App::UpdateGameState(float dt, glm::vec2 mousePos) {
     UpdateLawnMowers(dt);
     HandleInput(mousePos);
     UpdateZombies(dt);
-    UpdatePlants(dt);    // 內含地雷觸發
+    UpdatePlants(dt);
     UpdateProjectiles(dt);
     UpdateSuns(dt);
 
@@ -185,6 +187,7 @@ void App::HandleInput(glm::vec2 mousePos) {
                 else if (type == 3) m_DragPreview->SetDrawable(m_ImgNut);
                 else if (type == 4) { m_DragPreview->SetDrawable(m_ImgShovel); m_SeedBank->SetShovelVisible(false); }
                 else if (type == 5) m_DragPreview->SetDrawable(m_ImgPotatoMine);
+                else if (type == 6) m_DragPreview->SetDrawable(m_ImgSnowPea);
                 m_DragPreview->SetVisible(true);
             }
         }
@@ -213,7 +216,6 @@ void App::UpdatePlants(float dt) {
 
             plant->Update(dt);
 
-            // 類別識別與特殊行為
             if (auto flower = std::dynamic_pointer_cast<Sunflower>(plant)) {
                 if (flower->CanProduceSun()) {
                     auto s = std::make_shared<Sun>(flower->GetPosition().x, flower->GetPosition().y + 50.0f, flower->GetPosition().y - 10.0f);
@@ -222,9 +224,15 @@ void App::UpdatePlants(float dt) {
             }
             else if (auto shooter = std::dynamic_pointer_cast<Peashooter>(plant)) {
                 if (rowHasZombie[r] && shooter->CanFire()) {
-                    auto p = std::make_shared<Pea>(shooter->GetPosition().x + 30.0f, shooter->GetPosition().y + 35.0f);
+                    auto p = std::make_shared<Pea>(shooter->GetPosition().x + 30.0f, shooter->GetPosition().y + 35.0f, Pea::Type::NORMAL);
                     m_Peas.push_back(p); m_Root.AddChild(p); shooter->ResetFireFlag();
                 } else if (!rowHasZombie[r]) shooter->ResetFireFlag();
+            }
+            else if (auto snowShooter = std::dynamic_pointer_cast<SnowPea>(plant)) {
+                if (rowHasZombie[r] && snowShooter->CanFire()) {
+                    auto p = std::make_shared<Pea>(snowShooter->GetPosition().x + 30.0f, snowShooter->GetPosition().y + 35.0f, Pea::Type::ICE);
+                    m_Peas.push_back(p); m_Root.AddChild(p); snowShooter->ResetFireFlag();
+                } else if (!rowHasZombie[r]) snowShooter->ResetFireFlag();
             }
             else if (auto mine = std::dynamic_pointer_cast<PotatoMine>(plant)) {
                 if (mine->GetMineState() == PotatoMine::MineState::READY) {
@@ -244,7 +252,6 @@ void App::UpdatePlants(float dt) {
 }
 
 void App::UpdateZombies(float dt) {
-    // 生成殭屍
     if (m_ZombiesSpawnedInLevel < m_TotalZombiesToSpawn) {
         m_ZombieSpawnTimer += dt;
         if (m_ZombieSpawnTimer > m_CurrentLevelConfig.spawnInterval) {
@@ -259,7 +266,6 @@ void App::UpdateZombies(float dt) {
         }
     }
 
-    // 更新與狀態切換
     for (auto& z : m_zombies) {
         z->Update(dt);
         auto head = z->SpawnHead();
@@ -269,33 +275,23 @@ void App::UpdateZombies(float dt) {
         int r, c;
         if (m_Map->GetGridIndex(z->GetPosition() + glm::vec2{-25, 0}, r, c)) {
             auto p = m_Map->GetPlant(r, c);
-
             bool canEat = true;
-
             if (auto mine = std::dynamic_pointer_cast<PotatoMine>(p)) {
-                if (mine->GetMineState() == PotatoMine::MineState::READY) {
-                    canEat = false;
-                }
+                if (mine->GetMineState() == PotatoMine::MineState::READY) canEat = false;
             }
-
             if (p && canEat) {
                 z->SetState(Zombie::State::EATING);
                 p->TakeDamage(static_cast<int>(z->GetAttackPower() * dt));
-            }
-            else {
-                if (z->GetState() == Zombie::State::EATING) {
-                    z->SetState(Zombie::State::WALKING);
-                }
+            } else if (z->GetState() == Zombie::State::EATING) {
+                z->SetState(Zombie::State::WALKING);
             }
         }
     }
 
-    // 清理死亡殭屍
     m_zombies.erase(std::remove_if(m_zombies.begin(), m_zombies.end(), [this](const std::shared_ptr<Zombie>& z) {
         if (z->CanRemove()) { m_Root.RemoveChild(z); return true; } return false;
     }), m_zombies.end());
 
-    // 更新殭屍頭動畫
     for (auto it = m_ZombieHeads.begin(); it != m_ZombieHeads.end(); ) {
         (*it)->Update(dt);
         if ((*it)->CanRemove()) { m_Root.RemoveChild(*it); it = m_ZombieHeads.erase(it); } else ++it;
@@ -308,7 +304,9 @@ void App::UpdateProjectiles(float dt) {
         bool peaHit = false;
         for (auto& z : m_zombies) {
             if (!z->IsDead() && glm::distance((*it)->GetPosition(), z->GetPosition()) < 40.0f) {
-                z->TakeDamage(20); if (m_PeaHitSFX) m_PeaHitSFX->Play();
+                z->TakeDamage(20);
+                if ((*it)->GetPeaType() == Pea::Type::ICE) z->SlowDown(10.0f);
+                if (m_PeaHitSFX) m_PeaHitSFX->Play();
                 peaHit = true; break;
             }
         }
@@ -327,8 +325,7 @@ void App::UpdateLawnMowers(float dt) {
                 }
             }
             if (mower->obj->m_Transform.translation.x > 600.0f) mower->state = LawnMowerData::State::REMOVED;
-        }
-        else if (mower->state == LawnMowerData::State::IDLE) mower->obj->Draw();
+        } else if (mower->state == LawnMowerData::State::IDLE) mower->obj->Draw();
     }
 
     m_LawnMowers.erase(std::remove_if(m_LawnMowers.begin(), m_LawnMowers.end(), [this](const std::shared_ptr<LawnMowerData>& m){
@@ -337,16 +334,21 @@ void App::UpdateLawnMowers(float dt) {
 }
 
 void App::UpdateSuns(float dt) {
+    // 🚩 修正：先更新現有陽光，不受關卡限制
     for (auto& sun : m_Suns) sun->Update(dt);
     m_Suns.erase(std::remove_if(m_Suns.begin(), m_Suns.end(), [this](const std::shared_ptr<Sun>& s) {
         if (s->ShouldRemove()) { m_Root.RemoveChild(s); return true; } return false;
     }), m_Suns.end());
 
-    static float skySunTimer = 0.0f;
-    skySunTimer += dt;
-    if (skySunTimer > 13.0f) {
-        auto s = std::make_shared<Sun>(static_cast<float>(rand() % 611 - 430), 320.0f, static_cast<float>(rand() % 291 - 140));
-        m_Suns.push_back(s); m_Root.AddChild(s); skySunTimer = 0.0f;
+    // 🚩 只有白天(1~5關)會掉陽光
+    if (m_CurrentLevel < 6) {
+        skySunTimer += dt;
+        if (skySunTimer > 13.0f) {
+            auto s = std::make_shared<Sun>(static_cast<float>(rand() % 611 - 430), 320.0f, static_cast<float>(rand() % 291 - 140));
+            m_Suns.push_back(s);
+            m_Root.AddChild(s);
+            skySunTimer = 0.0f;
+        }
     }
 }
 
@@ -367,6 +369,7 @@ void App::ExecutePlanting(glm::vec2 mousePos) {
             else if (m_SelectedPlantType == 2 && m_SunCurrency >= 50) { p = std::make_shared<Sunflower>(0, 0); cost = 50; }
             else if (m_SelectedPlantType == 3 && m_SunCurrency >= 50) { p = std::make_shared<Wallnut>(0, 0); cost = 50; }
             else if (m_SelectedPlantType == 5 && m_SunCurrency >= 25) { p = std::make_shared<PotatoMine>(0, 0); cost = 25; }
+            else if (m_SelectedPlantType == 6 && m_SunCurrency >= 175) { p = std::make_shared<SnowPea>(0, 0); cost = 175; }
 
             if (p && m_Map->PlacePlant(r, c, p)) {
                 m_SunCurrency -= cost; m_Root.AddChild(p);
@@ -415,7 +418,6 @@ void App::ResetGame() {
         mower->obj->SetZIndex(45); mower->row = r; mower->state = LawnMowerData::State::IDLE;
         m_LawnMowers.push_back(mower); m_Root.AddChild(mower->obj);
     }
-    m_Root.RemoveChild(m_Map);
     for (auto& z : m_zombies) m_Root.RemoveChild(z);
     for (auto& p : m_Peas) m_Root.RemoveChild(p);
     for (auto& s : m_Suns) m_Root.RemoveChild(s);
@@ -428,16 +430,28 @@ void App::ResetGame() {
         }
     }
     m_SunCurrency = 50; m_SelectedPlantType = 0; m_DragPreview->SetVisible(false);
-    m_ZombiesSpawnedInLevel = 0; m_StateTimer = 0.0f;
+    m_ZombiesSpawnedInLevel = 0; m_StateTimer = 0.0f; skySunTimer = 0.0f;
     m_SeedBank->SetShovelVisible(true);
     if (m_GameBGM) m_GameBGM->Pause();
     if (m_MenuBGM) m_MenuBGM->Play(-1);
 }
 
 void App::LoadLevelConfig(int level) {
+    std::string mapPath;
+    if (level >= 6 && level <= 10) {
+        mapPath = "resources/image/map_night.jpg";
+        mapScale = 2.0f; //
+    } else {
+        mapPath = "resources/image/map.jpg";
+        mapScale = 2.0f;
+    }
+    m_Map = std::make_shared<GameMap>(mapPath);
+    m_Map->m_Transform.scale = {mapScale, mapScale}; // 套用動態縮放
+    m_Map->SetZIndex(0);
+
     std::vector<int> allowed;
     switch (level) {
-        case 1: allowed = {1, 2, 3}; m_CurrentLevelConfig = {15, 8.0f, 70, 20, 10, allowed}; break;
+        case 1: allowed = {1, 2, 3, 6}; m_CurrentLevelConfig = {15, 8.0f, 70, 20, 10, allowed}; break;
         case 2: allowed = {1, 2, 3, 5}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
         case 3: allowed= {1, 2, 3, 5, 6}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
         case 4: allowed= {1, 2, 3, 5, 6}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;

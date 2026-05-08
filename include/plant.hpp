@@ -90,4 +90,18 @@ private:
     std::vector<std::shared_ptr<Util::Image>> m_FramesReady;
 };
 
+// --- SnowPea ---
+class SnowPea : public Plant {
+public:
+    SnowPea(float x, float y);
+    void Update(float dt) override;
+    bool CanFire() const { return m_ShouldFire; }
+    void ResetFireFlag() { m_ShouldFire = false; }
+    Type GetType() const override;
+
+private:
+    float m_FireTimer = 0.0f;
+    bool m_ShouldFire = false;
+};
+
 #endif
