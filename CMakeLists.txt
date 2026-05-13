@@ -51,7 +51,6 @@ add_executable(${PROJECT_NAME}
         include/pea.hpp
         include/seedBank.hpp
         src/zombie.cpp
-        include/potatomine.hpp
 )
 
 if(MSVC)
