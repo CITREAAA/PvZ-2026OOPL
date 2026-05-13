@@ -455,11 +455,11 @@ void App::ResetGame() {
 
 void App::LoadLevelConfig(int level) {
     std::string mapPath;
-    float mapScale; // 🚩 宣告型別
+    float mapScale;
 
     if (level >= 6 && level <= 10) {
         mapPath = "resources/image/map_night.jpg";
-        mapScale = 1.0f; // 🚩 夜晚圖大，用 1.0f
+        mapScale = 2.0f;
     } else {
         mapPath = "resources/image/map.jpg";
         mapScale = 2.0f;
