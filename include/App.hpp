@@ -67,13 +67,29 @@ private:
     State m_CurrentState = State::START;
     Util::Renderer m_Root;
 
+    float skySunTimer = 0.0f;
+
+    void UpdateStartState(glm::vec2 mousePos);
+    void UpdateSelectLevelState(glm::vec2 mousePos);
+    void UpdateGameState(float dt, glm::vec2 mousePos);
+    void UpdateDefeatState(float dt);
+
+    void HandleInput(glm::vec2 mousePos);
+    void ExecutePlanting(glm::vec2 mousePos);
+
+    void UpdatePlants(float dt);
+    void UpdateZombies(float dt);
+    void UpdateProjectiles(float dt);
+    void UpdateLawnMowers(float dt);
+    void UpdateSuns(float dt);
+
+    bool CheckGameOver(float dt);
+
     std::shared_ptr<Util::Image> m_ImgPea;
     std::shared_ptr<Util::Image> m_ImgSun;
     std::shared_ptr<Util::Image> m_ImgNut;
-<<<<<<< HEAD
-=======
+
     std::shared_ptr<Util::Image> m_ImgPotatoMine;
-    std::shared_ptr<Util::Image> m_ImgShovel;
     std::shared_ptr<Util::Image> m_ImgSnowPea;
     std::shared_ptr<Util::Image> m_ImgCherry;
     std::shared_ptr<Util::Image> m_ImgSunShroom;
@@ -81,7 +97,7 @@ private:
     std::shared_ptr<Util::Image> m_ImgFume;
     std::shared_ptr<Util::Image> m_ImgScaredy;
     std::shared_ptr<Util::Image> m_ImgRepeater;
->>>>>>> dec192e110130b9b3b8c326c3f74a0c8173b852c
+
 
     // --- 首頁選單物件 ---
     std::shared_ptr<Util::GameObject> m_MenuBackground;
@@ -120,6 +136,8 @@ private:
     std::shared_ptr<Util::SFX> m_PlantSeedSFX;  // 種下植物
     std::shared_ptr<Util::SFX> m_PeaHitSFX;     // 豌豆打到殭屍 (給 App.cpp 判定碰撞用)
     std::shared_ptr<Util::SFX> m_DefeatSFX;
+    std::shared_ptr<Util::SFX> m_ExplodeSFX;
+
 
     std::vector<std::shared_ptr<LawnMowerData>> m_LawnMowers;
     std::shared_ptr<Util::SFX> m_LawnMowerSFX;

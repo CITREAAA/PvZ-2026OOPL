@@ -117,6 +117,23 @@ void Zombie::Update(float dt) {
     }
 
     // 3. 移動邏輯
+    if (m_SlowTimer > 0.0f) {
+        m_SlowTimer -= dt;
+    }
+
+    float currentSpeed = m_Speed;
+    if (m_SlowTimer > 0.0f) {
+        currentSpeed *= 0.5f;
+    }
+
+    if (m_SlowTimer > 0.0f) {
+        m_SlowTimer -= dt;
+    }
+
+    if (m_SlowTimer > 0.0f) {
+        currentSpeed *= 0.5f;
+    }
+
     if (m_CurrentState == State::WALKING || m_CurrentState == State::DYING) {
 
         if (m_IsJumping) {
@@ -140,7 +157,7 @@ void Zombie::Update(float dt) {
             return;
         }
 
-        m_Transform.translation.x -= m_Speed * dt;
+        m_Transform.translation.x -= currentSpeed * dt;
     }
 }
 
@@ -280,4 +297,8 @@ std::shared_ptr<ZombieHead> Zombie::SpawnHead() {
         return std::make_shared<ZombieHead>(m_Transform.translation.x + 10.0f, m_Transform.translation.y + 10.0f, m_Transform.translation.y - 100.0f);
     }
     return nullptr;
+}
+
+void Zombie::SlowDown(float duration) {
+    m_SlowTimer = duration;
 }

@@ -18,8 +18,6 @@ void App::Start() {
     m_ImgNut = std::make_shared<Util::Image>("resources/image/wallnut/1.png");
     // 🚩 載入鏟子預覽圖
     m_ImgShovel = std::make_shared<Util::Image>("resources/image/UI/Shovel.png");
-<<<<<<< HEAD
-=======
     m_ImgPotatoMine = std::make_shared<Util::Image>("resources/image/potatomine/underground/underground.png");
     m_ImgSnowPea = std::make_shared<Util::Image>("resources/image/snowpea/1.png");
     m_ImgSunShroom = std::make_shared<Util::Image>("resources/image/sunshroom/1.png");
@@ -28,7 +26,6 @@ void App::Start() {
     m_ImgScaredy = std::make_shared<Util::Image>("resources/image/scaredyshroom/1.png");
     m_ImgCherry = std::make_shared<Util::Image>("resources/image/cherrybomb/1.png");
     m_ImgRepeater = std::make_shared<Util::Image>("resources/image/repeaterpea/1.png");
->>>>>>> dec192e110130b9b3b8c326c3f74a0c8173b852c
 
     m_MenuBackground = std::make_shared<Util::GameObject>();
     m_MenuBackground->SetDrawable(std::make_shared<Util::Image>("resources/image/menu/menu.png"));
@@ -82,6 +79,7 @@ void App::Start() {
     m_PlantSeedSFX = std::make_shared<Util::SFX>("resources/music/cardLift.wav");
     m_PeaHitSFX = std::make_shared<Util::SFX>("resources/music/hit3.wav");
     m_DefeatSFX = std::make_shared<Util::SFX>("resources/music/gameLose.wav");
+    m_ExplodeSFX = std::make_shared<Util::SFX>("resources/music/cherrybomb.wav");
 
     if (m_MenuBGM) m_MenuBGM->Play(-1);
     m_CurrentState = State::START;
@@ -92,8 +90,8 @@ void App::LoadLevelConfig(int level) {
     switch (level) {
         case 1:allowed = {1, 2, 3};
             m_CurrentLevelConfig = {15, 8.0f, 70, 20, 10,0,allowed}; break;
-        case 2:allowed = {1, 2, 3, 5};
-            m_CurrentLevelConfig = {20, 8.0f, 10, 10, 10,70,allowed}; break;
+        case 2:allowed = {1, 2, 3, 5, 6, 7, 12};
+            m_CurrentLevelConfig = {20, 8.0f, 30, 10, 10,50,allowed}; break;
         case 3:allowed = {1, 2, 3, 5, 6};
             m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,0,allowed}; break;
         case 4:allowed = {1, 2, 3, 5, 6};
@@ -272,11 +270,39 @@ void App::Update() {
                 } else {
                     // 植物種植邏輯
                     std::shared_ptr<Plant> p = nullptr;
-                    if (m_SelectedPlantType == 1 && m_SunCurrency >= 100) p = std::make_shared<Peashooter>(0, 0);
-                    else if (m_SelectedPlantType == 2 && m_SunCurrency >= 50) p = std::make_shared<Sunflower>(0, 0);
-                    else if (m_SelectedPlantType == 3 && m_SunCurrency >= 50) p = std::make_shared<Wallnut>(0, 0);
+                    int cost = 0;
+
+                    if (m_SelectedPlantType == 1 && m_SunCurrency >= 100) {
+                        p = std::make_shared<Peashooter>(0, 0);
+                        cost = 100;
+                    }
+                    else if (m_SelectedPlantType == 2 && m_SunCurrency >= 50) {
+                        p = std::make_shared<Sunflower>(0, 0);
+                        cost = 50;
+                    }
+                    else if (m_SelectedPlantType == 3 && m_SunCurrency >= 50) {
+                        p = std::make_shared<Wallnut>(0, 0);
+                        cost = 50;
+                    }
+                    else if (m_SelectedPlantType == 5 && m_SunCurrency >= 25) {
+                        p = std::make_shared<PotatoMine>(0, 0);
+                        cost = 25;
+                    }
+                    else if (m_SelectedPlantType == 6 && m_SunCurrency >= 175) {
+                        p = std::make_shared<SnowPea>(0, 0);
+                        cost = 175;
+                    }
+                    else if (m_SelectedPlantType == 7 && m_SunCurrency >= 150) {
+                        p = std::make_shared<CherryBomb>(0, 0);
+                        cost = 150;
+                    }
+                    else if (m_SelectedPlantType == 12 && m_SunCurrency >= 200) {
+                        p = std::make_shared<Repeater>(0, 0);
+                        cost = 200;
+                    }
+
                     if (p && m_Map->PlacePlant(r, c, p)) {
-                        m_SunCurrency -= (m_SelectedPlantType == 1) ? 100 : 50;
+                        m_SunCurrency -= cost;
                         m_Root.AddChild(p);
                         m_SeedBank->StartCooldown(m_SelectedPlantType);
                         if (m_PlantSeedSFX) m_PlantSeedSFX->Play();
@@ -307,6 +333,10 @@ void App::Update() {
                     if (type == 1)      m_DragPreview->SetDrawable(m_ImgPea);
                     else if (type == 2) m_DragPreview->SetDrawable(m_ImgSun);
                     else if (type == 3) m_DragPreview->SetDrawable(m_ImgNut);
+                    else if (type == 5) m_DragPreview->SetDrawable(m_ImgPotatoMine);
+                    else if (type == 6) m_DragPreview->SetDrawable(m_ImgSnowPea);
+                    else if (type == 7) m_DragPreview->SetDrawable(m_ImgCherry);
+                    else if (type == 12) m_DragPreview->SetDrawable(m_ImgRepeater);
                     else if (type == 4) {
                         m_DragPreview->SetDrawable(m_ImgShovel);
                         m_SeedBank->SetShovelVisible(false); // 🚩 拿起鏟子，工具欄變空
@@ -435,7 +465,6 @@ void App::Update() {
             }
         }
 
-        static float skySunTimer = 0.0f;
         skySunTimer += dt;
         if (skySunTimer > 13.0f) {
             auto s = std::make_shared<Sun>(static_cast<float>(rand() % 611 - 430), 320.0f, static_cast<float>(rand() % 291 - 140));
@@ -475,8 +504,7 @@ void App::Update() {
     if (Util::Input::IsKeyUp(Util::Keycode::ESCAPE) || Util::Input::IfExit()) m_CurrentState = State::END;
 }
 
-<<<<<<< HEAD
-=======
+
 // =============================================================================
 // [ 狀態更新分流 ]
 // =============================================================================
@@ -827,7 +855,6 @@ bool App::CheckGameOver(float dt) {
     return false;
 }
 
->>>>>>> dec192e110130b9b3b8c326c3f74a0c8173b852c
 void App::ResetGame() {
 
     for (auto& m : m_LawnMowers) m_Root.RemoveChild(m->obj);
@@ -874,54 +901,57 @@ void App::ResetGame() {
 
 void App::UpdatePlantActions() {
     float dt = static_cast<float>(Util::Time::GetDeltaTimeMs()) / 1000.0f;
+
     bool rowHasZombie[5] = {false, false, false, false, false};
+
     for (auto& zombie : m_zombies) {
         if (!zombie->IsDead()) {
             int r, c;
             if (m_Map->GetGridIndex(zombie->GetPosition(), r, c)) {
-                if (r >= 0 && r < 5) rowHasZombie[r] = true;
+                if (r >= 0 && r < 5) {
+                    rowHasZombie[r] = true;
+                }
             }
         }
     }
-<<<<<<< HEAD
+
     for (int r = 0; r < 5; ++r) {
         for (int c = 0; c < 9; ++c) {
             auto plant = m_Map->GetPlant(r, c);
             if (!plant) continue;
+
             plant->Update(dt);
+
             if (auto flower = std::dynamic_pointer_cast<Sunflower>(plant)) {
                 if (flower->CanProduceSun()) {
-                    auto s = std::make_shared<Sun>(flower->GetPosition().x, flower->GetPosition().y + 50.0f, flower->GetPosition().y - 10.0f);
-                    m_Suns.push_back(s); m_Root.AddChild(s); flower->ResetSunFlag();
+                    auto s = std::make_shared<Sun>(
+                        flower->GetPosition().x,
+                        flower->GetPosition().y + 50.0f,
+                        flower->GetPosition().y - 10.0f
+                    );
+                    m_Suns.push_back(s);
+                    m_Root.AddChild(s);
+                    flower->ResetSunFlag();
                 }
             }
+
             if (auto shooter = std::dynamic_pointer_cast<Peashooter>(plant)) {
                 if (rowHasZombie[r] && shooter->CanFire()) {
-                    auto p = std::make_shared<Pea>(shooter->GetPosition().x + 30.0f, shooter->GetPosition().y + 35.0f);
-                    m_Peas.push_back(p); m_Root.AddChild(p); shooter->ResetFireFlag();
-                } else if (!rowHasZombie[r]) shooter->ResetFireFlag();
+                    auto p = std::make_shared<Pea>(
+                        shooter->GetPosition().x + 30.0f,
+                        shooter->GetPosition().y + 35.0f
+                    );
+                    m_Peas.push_back(p);
+                    m_Root.AddChild(p);
+                    shooter->ResetFireFlag();
+                } else if (!rowHasZombie[r]) {
+                    shooter->ResetFireFlag();
+                }
             }
         }
-=======
-    m_Map = std::make_shared<GameMap>(mapPath);
-    m_Map->m_Transform.scale = {mapScale, mapScale};
-    m_Map->SetZIndex(0);
-
-    std::vector<int> allowed;
-    switch (level) {
-        case 1: allowed = {1, 2, 3, 5, 6, 7, 12}; m_CurrentLevelConfig = {15, 8.0f, 70, 20, 10, allowed}; break;
-        case 2: allowed = {1, 2, 3, 5, 7}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
-        case 3: allowed= {1, 2, 3, 5, 6, 7}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
-        case 4: allowed= {1, 2, 3, 5, 6, 7}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
-        case 5: allowed= {1, 2, 3, 5, 6, 7}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
-        case 6: allowed= {1, 3, 7, 8, 9, 10}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
-        case 7: allowed= {1, 3, 6, 7, 8, 9}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
-        case 8: allowed= {1, 3, 7, 8, 9, 10}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
-        case 9: allowed= {1, 3, 6, 7, 8, 9, 11}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
-        case 10: allowed= {3, 6, 7, 8, 9, 11, 12}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
->>>>>>> dec192e110130b9b3b8c326c3f74a0c8173b852c
     }
 }
 
-
-void App::End() { LOG_DEBUG("Game Ended."); }
+void App::End() {
+    LOG_DEBUG("Game Ended.");
+}

@@ -16,14 +16,11 @@ public:
     void Update(float dt);
     bool CanRemove() const { return m_DisappearTimer <= 0.0f; }
 
-
-
 private:
     glm::vec2 m_Velocity;
     float m_GroundY;
     bool m_OnGround = false;
     float m_DisappearTimer = 1.0f;
-
 };
 
 class Zombie : public GameEntity {
@@ -37,6 +34,7 @@ public:
 
     void TakeDamage(int damage);
     void Update(float dt);
+    void SlowDown(float duration);
 
     bool IsDead() const { return m_CurrentState == State::DEAD; }
     bool IsDying() const { return m_CurrentState == State::DYING; }
@@ -72,6 +70,8 @@ private:
     float m_EatSoundTimer = 0.0f;
 
     State m_CurrentState = State::WALKING;
+
+    float m_SlowTimer = 0.0f;
 
     bool m_IsLostArm = false;
     bool m_IsDecapitated = false;
