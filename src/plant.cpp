@@ -235,3 +235,25 @@ void CherryBomb::Update(float dt) {
 }
 
 Plant::Type CherryBomb::GetType() const { return Plant::Type::CHERRYBOMB; }
+
+// --- Repeater 實作 ---
+Repeater::Repeater(float x, float y) : Plant({}, 300, 0) { // HP=300
+    m_Transform.translation = {x, y};
+
+    auto paths = GetFramesFromFolder("resources/image/repeaterpea");
+    if (!paths.empty()) {
+        // 動態播放間隔約 100ms
+        m_Animation = std::make_shared<Util::Animation>(paths, true, 150, true);
+        SetDrawable(m_Animation);
+    }
+}
+
+void Repeater::Update(float dt) {
+    m_FireTimer += dt;
+    if (m_FireTimer >= m_FireInterval) {
+        m_CanFire = true;
+        m_FireTimer = 0.0f;
+    }
+}
+
+Plant::Type Repeater::GetType() const { return Plant::Type::REPEATER; }
