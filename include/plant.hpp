@@ -17,7 +17,7 @@ public:
     enum class Type {
         PEASHOOTER = 1, SUNFLOWER = 2, WALLNUT = 3, MINE = 5,
         SNOWPEA = 6, CHERRYBOMB = 7, SUNSHROOM = 8, PUFFSHROOM = 9,
-        FUMESHROOM = 10, SCAREDYSHROOM = 11, REPEATERPEA = 12
+        FUMESHROOM = 10, SCAREDYSHROOM = 11, REPEATER = 12
     };
 
     Plant(const std::vector<std::string>& paths, int h, int c)
@@ -125,6 +125,86 @@ private:
     float m_Timer = 0.0f;
     bool m_LogicTriggered = false; // 專門控制傷害結算
     bool m_Exploded = false;
+};
+
+// --- Repeater (連發豌豆) ---
+class Repeater : public Plant {
+public:
+    Repeater(float x, float y);
+    void Update(float dt) override;
+
+    // 讓 App.cpp 判斷是否可以發射
+    bool CanFire() { return m_CanFire; }
+    void ResetFireFlag() { m_CanFire = false; }
+
+    Type GetType() const override;
+
+private:
+    float m_FireTimer = 0.0f;
+    const float m_FireInterval = 1.4f; // 射速約 1.36~1.5 秒
+    bool m_CanFire = false;
+};
+
+// --- SunShroom (陽光蘑菇) ---
+class SunShroom : public Plant {
+public:
+    SunShroom(float x, float y);
+    void Update(float dt) override;
+    bool CanProduceSun() { return m_ReadyToProduce; }
+    void ResetSunFlag() { m_ReadyToProduce = false; }
+    int GetSunAmount() const { return m_IsGrown ? 25 : 15; }
+    Type GetType() const override;
+
+private:
+    float m_SunTimer = 0.0f;
+    float m_GrowthTimer = 0.0f;
+    bool m_ReadyToProduce = false;
+    bool m_IsGrown = false;
+};
+
+// --- PuffShroom (小噴菇) ---
+class PuffShroom : public Plant {
+public:
+    PuffShroom(float x, float y);
+    void Update(float dt) override;
+    bool CanFire() { return m_CanFire; }
+    void ResetFireFlag() { m_CanFire = false; }
+    Type GetType() const override;
+
+private:
+    float m_FireTimer = 0.0f;
+    bool m_CanFire = false;
+};
+
+// --- FumeShroom (大噴菇) ---
+class FumeShroom : public Plant {
+public:
+    FumeShroom(float x, float y);
+    void Update(float dt) override;
+    bool CanFire() { return m_CanFire; }
+    void ResetFireFlag() { m_CanFire = false; }
+    Type GetType() const override;
+
+private:
+    float m_FireTimer = 0.0f;
+    bool m_CanFire = false;
+};
+
+// --- ScaredyShroom (膽小菇) ---
+class ScaredyShroom : public Plant {
+public:
+    ScaredyShroom(float x, float y);
+    void Update(float dt) override;
+    bool CanFire() { return m_CanFire && !m_IsScared; }
+    void ResetFireFlag() { m_CanFire = false; }
+    void SetScared(bool scared);
+    bool IsScared() const { return m_IsScared; }
+    Type GetType() const override;
+
+private:
+    float m_FireTimer = 0.0f;
+    bool m_CanFire = false;
+    bool m_IsScared = false;
 };
 
 #endif

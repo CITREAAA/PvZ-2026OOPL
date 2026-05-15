@@ -108,6 +108,11 @@ private:
     std::shared_ptr<Util::Image> m_ImgShovel;
     std::shared_ptr<Util::Image> m_ImgSnowPea;
     std::shared_ptr<Util::Image> m_ImgCherry;
+    std::shared_ptr<Util::Image> m_ImgSunShroom;
+    std::shared_ptr<Util::Image> m_ImgPuff;
+    std::shared_ptr<Util::Image> m_ImgFume;
+    std::shared_ptr<Util::Image> m_ImgScaredy;
+    std::shared_ptr<Util::Image> m_ImgRepeater;
 
     // 選單與關卡 UI
     std::shared_ptr<Util::GameObject> m_MenuBackground;

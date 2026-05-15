@@ -22,8 +22,12 @@ void App::Start() {
     m_ImgShovel = std::make_shared<Util::Image>("resources/image/UI/Shovel.png");
     m_ImgPotatoMine = std::make_shared<Util::Image>("resources/image/potatomine/underground/underground.png");
     m_ImgSnowPea = std::make_shared<Util::Image>("resources/image/snowpea/1.png");
-    // 🚩 修正：預覽圖通常使用動畫的第一幀
+    m_ImgSunShroom = std::make_shared<Util::Image>("resources/image/sunshroom/1.png");
+    m_ImgPuff = std::make_shared<Util::Image>("resources/image/puffshroom/1.png");
+    m_ImgFume = std::make_shared<Util::Image>("resources/image/fumeshroom/1.png");
+    m_ImgScaredy = std::make_shared<Util::Image>("resources/image/scaredyshroom/1.png");
     m_ImgCherry = std::make_shared<Util::Image>("resources/image/cherrybomb/1.png");
+    m_ImgRepeater = std::make_shared<Util::Image>("resources/image/repeaterpea/1.png");
 
     m_MenuBackground = std::make_shared<Util::GameObject>();
     m_MenuBackground->SetDrawable(std::make_shared<Util::Image>("resources/image/menu/menu.png"));
@@ -188,7 +192,12 @@ void App::HandleInput(glm::vec2 mousePos) {
                 else if (type == 4) { m_DragPreview->SetDrawable(m_ImgShovel); m_SeedBank->SetShovelVisible(false); }
                 else if (type == 5) m_DragPreview->SetDrawable(m_ImgPotatoMine);
                 else if (type == 6) m_DragPreview->SetDrawable(m_ImgSnowPea);
-                else if (type == 7) m_DragPreview->SetDrawable(m_ImgCherry); // 🚩 補上櫻桃預覽
+                else if (type == 7) m_DragPreview->SetDrawable(m_ImgCherry);
+                else if (type == 8) m_DragPreview->SetDrawable(m_ImgSunShroom);
+                else if (type == 9) m_DragPreview->SetDrawable(m_ImgPuff);
+                else if (type == 10) m_DragPreview->SetDrawable(m_ImgFume);
+                else if (type == 11) m_DragPreview->SetDrawable(m_ImgScaredy);
+                else if (type == 12) m_DragPreview->SetDrawable(m_ImgRepeater);
                 m_DragPreview->SetVisible(true);
             }
         }
@@ -261,6 +270,21 @@ void App::UpdatePlants(float dt) {
                             }
                         }
                     }
+                }
+            }
+            else if (auto repeater = std::dynamic_pointer_cast<Repeater>(plant)) {
+                if (rowHasZombie[r] && repeater->CanFire()) {
+                    auto p1 = std::make_shared<Pea>(repeater->GetPosition().x + 30.0f, repeater->GetPosition().y + 35.0f, Pea::Type::NORMAL);
+                    auto p2 = std::make_shared<Pea>(repeater->GetPosition().x - 10.0f, repeater->GetPosition().y + 35.0f, Pea::Type::NORMAL);
+
+                    m_Peas.push_back(p1);
+                    m_Peas.push_back(p2);
+                    m_Root.AddChild(p1);
+                    m_Root.AddChild(p2);
+
+                    repeater->ResetFireFlag();
+                } else if (!rowHasZombie[r]) {
+                    repeater->ResetFireFlag();
                 }
             }
 
@@ -387,6 +411,8 @@ void App::ExecutePlanting(glm::vec2 mousePos) {
             else if (m_SelectedPlantType == 5 && m_SunCurrency >= 25) { p = std::make_shared<PotatoMine>(0, 0); cost = 25; }
             else if (m_SelectedPlantType == 6 && m_SunCurrency >= 175) { p = std::make_shared<SnowPea>(0, 0); cost = 175; }
             else if (m_SelectedPlantType == 7 && m_SunCurrency >= 150) { p = std::make_shared<CherryBomb>(0, 0); cost = 150; }
+            //else if (m_SelectedPlantType == 8 && m_SunCurrency >= 25) { p = std::make_shared<>(0, 0); cost = 25; }
+            else if (m_SelectedPlantType == 12 && m_SunCurrency >= 200) { p = std::make_shared<Repeater>(0, 0); cost = 200; }
 
             if (p && m_Map->PlacePlant(r, c, p)) {
                 m_SunCurrency -= cost; m_Root.AddChild(p);
@@ -470,7 +496,7 @@ void App::LoadLevelConfig(int level) {
 
     std::vector<int> allowed;
     switch (level) {
-        case 1: allowed = {1, 2, 3, 5, 6, 7}; m_CurrentLevelConfig = {15, 8.0f, 70, 20, 10, allowed}; break;
+        case 1: allowed = {1, 2, 3, 5, 6, 7, 12}; m_CurrentLevelConfig = {15, 8.0f, 70, 20, 10, allowed}; break;
         case 2: allowed = {1, 2, 3, 5, 7}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
         case 3: allowed= {1, 2, 3, 5, 6, 7}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
         case 4: allowed= {1, 2, 3, 5, 6, 7}; m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0, allowed}; break;
