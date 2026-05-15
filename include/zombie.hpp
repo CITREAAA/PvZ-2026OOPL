@@ -10,31 +10,27 @@
 #include <string>
 #include <glm/vec2.hpp>
 
-// ==========================================
-// 獨立的頭部物理物件
-// ==========================================
 class ZombieHead : public Util::GameObject {
 public:
     ZombieHead(float startX, float startY, float groundY);
     void Update(float dt);
     bool CanRemove() const { return m_DisappearTimer <= 0.0f; }
 
+
+
 private:
     glm::vec2 m_Velocity;
     float m_GroundY;
     bool m_OnGround = false;
     float m_DisappearTimer = 1.0f;
+
 };
 
-// ==========================================
-// 殭屍本體物件
-// ==========================================
 class Zombie : public GameEntity {
 public:
     enum class State { WALKING, EATING, DYING, DEAD };
-    enum class Type { NORMAL, CONEHEAD, BUCKETHEAD };
+    enum class Type { NORMAL, CONEHEAD, BUCKETHEAD, POLEVAULTER };
 
-    // 🚩 建構子加入種類參數，預設為普通殭屍
     Zombie(float x, float y, Type type = Type::NORMAL);
 
     float GetAttackPower() const { return m_AttackPower; }
@@ -44,27 +40,35 @@ public:
 
     bool IsDead() const { return m_CurrentState == State::DEAD; }
     bool IsDying() const { return m_CurrentState == State::DYING; }
-    void SlowDown(float duration);
 
     void SetState(State state);
     State GetState() const { return m_CurrentState; }
+    Type GetType() const { return m_Type; }
+
     glm::vec2 GetPosition() const { return m_Transform.translation; }
 
-    bool CanRemove() const { return m_CurrentState == State::DEAD && m_DeathTimer <= 0.0f; }
+    bool CanRemove() const {
+        return m_CurrentState == State::DEAD && m_DeathTimer <= 0.0f;
+    }
+
+    void StartJump();
+
+    bool HasJumped() const { return m_HasJumped; }
+    bool IsJumping() const { return m_IsJumping; }
+    bool IsPreparingJump() const { return m_IsPreparingJump; }
 
     std::shared_ptr<ZombieHead> SpawnHead();
 
 private:
-    Type m_Type;             // 殭屍種類
-    float m_ArmorHP = 0.0f;  // 裝甲生命值
-    float m_HP = 270.0f;     // 本體生命值
+    Type m_Type;
+    float m_ArmorHP = 0.0f;
+    float m_HP = 270.0f;
     float m_Speed = 14.4f;
     float m_AttackPower = 100.0f;
 
     float m_DeathTimer = 0.0f;
 
     std::shared_ptr<Util::SFX> m_EatSFX;
-    //std::shared_ptr<Util::SFX> m_GroanSFX;
     float m_EatSoundTimer = 0.0f;
 
     State m_CurrentState = State::WALKING;
@@ -73,14 +77,13 @@ private:
     bool m_IsDecapitated = false;
     bool m_HeadHandedOut = false;
 
-    float m_SlowTimer = 0.0f;
-    bool m_IsSlowed = false;
-    float m_BaseSpeed = 40.0f;
-
-    int m_BaseAnimInterval = 120;
+    bool m_IsPreparingJump = false;
+    bool m_HasJumped = false;
+    bool m_IsJumping = false;
+    float m_JumpTimer = 0.0f;
 
     std::shared_ptr<Util::Animation> m_Animation;
     void UpdateAnimation();
 };
 
-#endif // ZOMBIE_HPP
+#endif
