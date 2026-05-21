@@ -26,7 +26,7 @@ private:
 class Zombie : public GameEntity {
 public:
     enum class State { WALKING, EATING, DYING, DEAD };
-    enum class Type { NORMAL, CONEHEAD, BUCKETHEAD, POLEVAULTER };
+    enum class Type { NORMAL, CONEHEAD, BUCKETHEAD, POLEVAULTER, FOOTBALL };
 
     Zombie(float x, float y, Type type = Type::NORMAL);
 

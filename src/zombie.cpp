@@ -76,6 +76,11 @@ Zombie::Zombie(float x, float y, Type type): GameEntity("", 270.0f), m_Type(type
         m_ArmorHP = 0.0f;
         m_Speed = 32.0f;
     }
+    else if (m_Type == Type::FOOTBALL) {
+        m_ArmorHP = 0.0f;
+        m_HP = 500.0f;
+        m_Speed = 45.0f;
+    }
     else {
         m_ArmorHP = 0.0f;
     }
@@ -90,8 +95,12 @@ void Zombie::Update(float dt) {
 
     // 1. 如果已經進入 DEAD 狀態，只跑計時器，不跑任何邏輯
     if (m_CurrentState == State::DEAD) {
-        if (m_DeathTimer > 0.0f) m_DeathTimer -= dt;
-        return;
+        if (m_DeathTimer > 0.0f) {
+            m_DeathTimer -= dt;
+            return; // 🚩 強制卡在這裡！只跑倒數計時，不准跑底下的任何移動或啃食
+        }
+        return; // 時間扣完了，徹底結束
+
     }
 
     if (m_CurrentState == State::EATING) {
@@ -111,6 +120,23 @@ void Zombie::Update(float dt) {
 
     if (m_HP <= 0.0f) {
         m_HP = 0.0f;
+
+        if (m_Type == Type::FOOTBALL) {
+            if (m_CurrentState != State::DEAD) {
+                m_CurrentState = State::DEAD;
+                UpdateAnimation(); // 觸發更換成 die 資料夾的 7 張圖
+
+                // 🎯 核心特調：7 張圖 * 150ms = 1.05 秒。
+                // 我們強制給它 1.1 秒，保證第 7 張圖播完的那一瞬間剛好被回收，絕對不卡死、不多留！
+                m_DeathTimer = 1.1f;
+            }
+        }
+        else {
+            // 其他普通殭屍維持原本的立刻死掉邏輯
+            SetState(State::DEAD);
+        }
+        return;
+
         LOG_DEBUG("Zombie HP is 0. Forcing DEAD state.");
         SetState(State::DEAD);
         return; // 切換到 DEAD 後立刻跳出
@@ -153,8 +179,6 @@ void Zombie::Update(float dt) {
 
                 UpdateAnimation();
             }
-
-            return;
         }
 
         m_Transform.translation.x -= currentSpeed * dt;
@@ -232,11 +256,14 @@ void Zombie::UpdateAnimation() {
         }
 
     if (m_CurrentState == State::DEAD) {
-        path = "resources/image/zombie/normal_zombie/die/ZombieDie";
+        if (m_Type == Type::FOOTBALL) {
+            path = "resources/image/zombie/football_zombie/die";
+        } else {
+            path = "resources/image/zombie/normal_zombie/die/ZombieDie";
+        }
         interval = 150;
-        auto frames = GetFramesFromFolder(path);
+        loop = false;
     }
-
     else if (m_CurrentState == State::DYING) {
         path = "resources/image/zombie/normal_zombie/die/ZombieLostHead";
     }
@@ -265,6 +292,10 @@ void Zombie::UpdateAnimation() {
             path = (m_CurrentState == State::EATING) ?
                    "resources/image/zombie/conehead_zombie/eat" :
                    "resources/image/zombie/conehead_zombie";
+        }else if (m_Type == Type::FOOTBALL) {
+            path = (m_CurrentState == State::EATING) ?
+                   "resources/image/zombie/football_zombie/eat" :
+                   "resources/image/zombie/football_zombie";
         } else {
             path = (m_CurrentState == State::EATING) ?
                    "resources/image/zombie/normal_zombie/eat" :
@@ -286,7 +317,12 @@ void Zombie::UpdateAnimation() {
     m_Drawable = m_Animation;
 
     if (m_CurrentState == State::DEAD) {
-        m_DeathTimer = (frames.size() * interval) / 1000.0f;
+        // 🚩 如果是橄欖球殭屍，強行給他 2.5 秒的死亡停留時間（可根據你圖片張數自行調整，例如 2.0f 或 3.0f）
+        if (m_Type == Type::FOOTBALL) {
+            m_DeathTimer = 2.5f;
+        } else {
+            m_DeathTimer = (frames.size() * interval) / 1000.0f;
+        }
         LOG_DEBUG("Zombie DEAD: Playing animation, will be removed in {}s", m_DeathTimer);
     }
 }
