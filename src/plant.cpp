@@ -257,3 +257,97 @@ void Repeater::Update(float dt) {
 }
 
 Plant::Type Repeater::GetType() const { return Plant::Type::REPEATER; }
+
+// =============================================================================
+// [ 夜晚植物蘑菇類實作 ]
+// =============================================================================
+
+// --- 1. SunShroom (陽光蘑菇) ---
+SunShroom::SunShroom(float x, float y) : Plant({}, 300, 25) {
+    m_Transform.translation = {x, y};
+    m_ZIndex = 10;
+    auto paths = GetFramesFromFolder("resources/image/sunshroom");
+    if (!paths.empty()) {
+        m_Animation = std::make_shared<Util::Animation>(paths, true, 150, true);
+        SetDrawable(m_Animation);
+    }
+}
+
+void SunShroom::Update(float dt) {
+    m_SunTimer += dt;
+    if (m_SunTimer >= 24.0f) { m_ReadyToProduce = true; m_SunTimer = 0.0f; }
+
+    if (!m_IsGrown) {
+        m_GrowthTimer += dt;
+        if (m_GrowthTimer >= 120.0f) {
+            m_IsGrown = true;
+            auto paths = GetFramesFromFolder("resources/image/sunshroom/growup");
+            if (!paths.empty()) {
+                m_Animation = std::make_shared<Util::Animation>(paths, true, 150, true);
+                SetDrawable(m_Animation);
+            }
+        }
+    }
+}
+Plant::Type SunShroom::GetType() const { return Plant::Type::SUNSHROOM; }
+
+
+// --- 2. PuffShroom (小噴菇) ---
+PuffShroom::PuffShroom(float x, float y) : Plant({}, 300, 0) {
+    m_Transform.translation = {x, y};
+    m_ZIndex = 10;
+    auto paths = GetFramesFromFolder("resources/image/puffshroom");
+    if (!paths.empty()) {
+        m_Animation = std::make_shared<Util::Animation>(paths, true, 150, true);
+        SetDrawable(m_Animation);
+    }
+}
+void PuffShroom::Update(float dt) {
+    m_FireTimer += dt;
+    if (m_FireTimer >= 1.45f) { m_CanFire = true; m_FireTimer = 0.0f; }
+}
+Plant::Type PuffShroom::GetType() const { return Plant::Type::PUFFSHROOM; }
+
+
+// --- 3. FumeShroom (大噴菇) ---
+FumeShroom::FumeShroom(float x, float y) : Plant({}, 300, 75) {
+    m_Transform.translation = {x, y};
+    m_ZIndex = 10;
+    auto paths = GetFramesFromFolder("resources/image/fumeshroom");
+    if (!paths.empty()) {
+        m_Animation = std::make_shared<Util::Animation>(paths, true, 150, true);
+        SetDrawable(m_Animation);
+    }
+}
+void FumeShroom::Update(float dt) {
+    m_FireTimer += dt;
+    if (m_FireTimer >= 1.45f) { m_CanFire = true; m_FireTimer = 0.0f; }
+}
+Plant::Type FumeShroom::GetType() const { return Plant::Type::FUMESHROOM; }
+
+
+// --- 4. ScaredyShroom (膽小菇) ---
+ScaredyShroom::ScaredyShroom(float x, float y) : Plant({}, 300, 25) {
+    m_Transform.translation = {x, y};
+    m_ZIndex = 10;
+    auto paths = GetFramesFromFolder("resources/image/scaredyshroom");
+    if (!paths.empty()) {
+        m_Animation = std::make_shared<Util::Animation>(paths, true, 150, true);
+        SetDrawable(m_Animation);
+    }
+}
+void ScaredyShroom::Update(float dt) {
+    m_FireTimer += dt;
+    if (m_FireTimer >= 1.45f) { m_CanFire = true; m_FireTimer = 0.0f; }
+}
+void ScaredyShroom::SetScared(bool scared) {
+    if (m_IsScared == scared) return;
+    m_IsScared = scared;
+    auto folder = m_IsScared ? "resources/image/scaredyshroom/scared" : "resources/image/scaredyshroom";
+    auto paths = GetFramesFromFolder(folder);
+    if (!paths.empty()) {
+        m_Animation = std::make_shared<Util::Animation>(paths, true, 150, true);
+        SetDrawable(m_Animation);
+    }
+}
+Plant::Type ScaredyShroom::GetType() const { return Plant::Type::SCAREDYSHROOM; }

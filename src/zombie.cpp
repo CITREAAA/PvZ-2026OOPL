@@ -58,139 +58,98 @@ void ZombieHead::Update(float dt) {
 }
 
 // --- Zombie 實作 ---
-Zombie::Zombie(float x, float y, Type type): GameEntity("", 270.0f), m_Type(type) {
+Zombie::Zombie(float x, float y, Type type) : GameEntity("", 270.0f), m_Type(type) {
     m_Transform.translation = {x, y};
+    m_ZIndex = 50;
 
     if (m_Type == Type::POLEVAULTER) {
         m_Transform.translation.y += 20.0f;
     }
-    m_ZIndex = 50;
 
     if (m_Type == Type::BUCKETHEAD) {
         m_ArmorHP = 1100.0f;
-    }
-    else if (m_Type == Type::CONEHEAD) {
+    } else if (m_Type == Type::CONEHEAD) {
         m_ArmorHP = 370.0f;
-    }
-    else if (m_Type == Type::POLEVAULTER) {
+    } else if (m_Type == Type::POLEVAULTER) {
         m_ArmorHP = 0.0f;
         m_Speed = 32.0f;
-    }
-    else if (m_Type == Type::FOOTBALL) {
+    } else if (m_Type == Type::FOOTBALL) {
         m_ArmorHP = 0.0f;
         m_HP = 500.0f;
         m_Speed = 45.0f;
-    }
-    else {
+    } else {
         m_ArmorHP = 0.0f;
     }
 
     m_EatSFX = std::make_shared<Util::SFX>("resources/music/zombieChomp.wav");
-    m_HP = 270.0f;
-
+    m_BaseAnimInterval = 120;
     UpdateAnimation();
 }
 
 void Zombie::Update(float dt) {
-
-    // 1. 如果已經進入 DEAD 狀態，只跑計時器，不跑任何邏輯
+    // 1. 死亡狀態檢查
     if (m_CurrentState == State::DEAD) {
-        if (m_DeathTimer > 0.0f) {
-            m_DeathTimer -= dt;
-            return; // 🚩 強制卡在這裡！只跑倒數計時，不准跑底下的任何移動或啃食
-        }
-        return; // 時間扣完了，徹底結束
-
+        if (m_DeathTimer > 0.0f) m_DeathTimer -= dt;
+        return;
     }
 
+    // 2. 處理減速狀態與計時
+    if (m_IsSlowed) {
+        m_SlowTimer -= dt;
+        if (m_SlowTimer <= 0.0f) {
+            m_IsSlowed = false;
+            m_SlowTimer = 0.0f;
+            if (m_Animation) m_Animation->SetInterval(m_BaseAnimInterval);
+        } else {
+            if (m_Animation) m_Animation->SetInterval(m_BaseAnimInterval * 2);
+        }
+    }
+
+    // 3. 處理啃食音效
     if (m_CurrentState == State::EATING) {
         m_EatSoundTimer -= dt;
         if (m_EatSoundTimer <= 0.0f) {
             if (m_EatSFX) m_EatSFX->Play();
-            m_EatSoundTimer = 0.6f; // 每 0.6 秒響一次
+            m_EatSoundTimer = 0.6f;
         }
     } else {
-        m_EatSoundTimer = 0.0f; // 如果沒在吃，計時器歸零
+        m_EatSoundTimer = 0.0f;
     }
 
-    // 2. 斷頭流血與致死檢查 (核心：只要血量 <= 0 絕對要倒下)
+    // 4. 致死與流血邏輯
     if (m_IsDecapitated || m_CurrentState == State::DYING) {
         m_HP -= 60.0f * dt;
     }
 
     if (m_HP <= 0.0f) {
         m_HP = 0.0f;
-
-        if (m_Type == Type::FOOTBALL) {
-            if (m_CurrentState != State::DEAD) {
-                m_CurrentState = State::DEAD;
-                UpdateAnimation(); // 觸發更換成 die 資料夾的 7 張圖
-
-                // 🎯 核心特調：7 張圖 * 150ms = 1.05 秒。
-                // 我們強制給它 1.1 秒，保證第 7 張圖播完的那一瞬間剛好被回收，絕對不卡死、不多留！
-                m_DeathTimer = 1.1f;
-            }
-        }
-        else {
-            // 其他普通殭屍維持原本的立刻死掉邏輯
-            SetState(State::DEAD);
-        }
-        return;
-
-        LOG_DEBUG("Zombie HP is 0. Forcing DEAD state.");
         SetState(State::DEAD);
-        return; // 切換到 DEAD 後立刻跳出
+        return;
     }
 
-    // 3. 移動邏輯
-    if (m_SlowTimer > 0.0f) {
-        m_SlowTimer -= dt;
-    }
-
-    float currentSpeed = m_Speed;
-    if (m_SlowTimer > 0.0f) {
-        currentSpeed *= 0.5f;
-    }
-
-    if (m_SlowTimer > 0.0f) {
-        m_SlowTimer -= dt;
-    }
-
-    if (m_SlowTimer > 0.0f) {
-        currentSpeed *= 0.5f;
-    }
-
+    // 5. 移動邏輯 (受減速影響)
     if (m_CurrentState == State::WALKING || m_CurrentState == State::DYING) {
-
         if (m_IsJumping) {
             m_JumpTimer -= dt;
-
-            // beforejump 播放中不要移動
             if (m_JumpTimer <= 0.0f) {
                 m_IsJumping = false;
                 m_IsPreparingJump = false;
                 m_HasJumped = true;
-
-                // 跳完後一次跨過植物
                 m_Transform.translation.x -= 130.0f;
-
-                // 跳完變成 afterjump 的慢速
                 m_Speed = 14.4f;
-
                 UpdateAnimation();
             }
+        } else {
+            float actualSpeed = m_IsSlowed ? (m_Speed * 0.5f) : m_Speed;
+            m_Transform.translation.x -= actualSpeed * dt;
         }
-
-        m_Transform.translation.x -= currentSpeed * dt;
     }
 }
 
 void Zombie::TakeDamage(int damage) {
     if (m_CurrentState == State::DEAD) return;
-
     float dmg = static_cast<float>(damage);
 
-    // 裝甲處理
     if (m_ArmorHP > 0.0f) {
         m_ArmorHP -= dmg;
         if (m_ArmorHP <= 0.0f) {
@@ -203,127 +162,96 @@ void Zombie::TakeDamage(int damage) {
         }
     }
 
-    // 本體處理
     if (dmg > 0.0f) {
         m_HP -= dmg;
-        LOG_DEBUG("Zombie HP remaining: {}", m_HP);
-
         if (m_HP <= 0.0f) {
             m_HP = 0.0f;
             SetState(State::DEAD);
         } else if (m_HP < 90.0f && !m_IsDecapitated) {
             m_IsDecapitated = true;
-            SetState(State::DYING);
+
+            // 🚩 只有普通/三角錐/鐵桶會進入 DYING (掉頭) 狀態
+            // 橄欖球跟撐竿跳會直接流血扣到 HP=0，跳過 DYING 進入 DEAD
+            if (m_Type == Type::NORMAL || m_Type == Type::CONEHEAD || m_Type == Type::BUCKETHEAD) {
+                SetState(State::DYING);
+            }
         }
     }
 }
 
 void Zombie::SetState(State state) {
-    LOG_DEBUG("SetState called: {} -> {}", (int)m_CurrentState, (int)state);
-    if (m_CurrentState == state) return;
-    if (m_CurrentState == State::DEAD) return;
+    if (m_CurrentState == state || m_CurrentState == State::DEAD) return;
     m_CurrentState = state;
     UpdateAnimation();
 }
 
-void Zombie::StartJump() {
-    if (m_Type != Type::POLEVAULTER) return;
-    if (m_HasJumped) return;
-    if (m_CurrentState == State::DEAD) return;
-
-    m_IsPreparingJump = true;
-    m_IsJumping = true;
-    m_CurrentState = State::WALKING;
-
-    // beforejump 有 43 張，時間要長一點
-    m_JumpTimer = 5.2f;
-
-    UpdateAnimation();
-}
 void Zombie::UpdateAnimation() {
     std::string path;
     int interval = 120;
+
+    // 🚩 核心修正：全部強制 loop = true 規避記憶體破圖 bug，靠 m_DeathTimer 回收
     bool loop = true;
 
-    m_Transform.scale = {1.0f, 1.0f};
-
-    // 撐竿跳殭屍縮小（但不影響死亡動畫）
-    if (m_Type == Type::POLEVAULTER &&
-        m_CurrentState != State::DEAD &&
-        m_CurrentState != State::DYING) {
-
+    // 確保撐竿跳殭屍大小正確
+    if (m_Type == Type::POLEVAULTER) {
         m_Transform.scale = {0.35f, 0.35f};
-        }
+    } else {
+        m_Transform.scale = {1.0f, 1.0f};
+    }
 
+    // 1. DEAD 狀態 (死透倒下)
     if (m_CurrentState == State::DEAD) {
         if (m_Type == Type::FOOTBALL) {
             path = "resources/image/zombie/football_zombie/die";
+            interval = 150;
+        } else if (m_Type == Type::POLEVAULTER) {
+            path = "resources/image/zombie/polevaulter_zombie/die";
+            interval = 120;
         } else {
             path = "resources/image/zombie/normal_zombie/die/ZombieDie";
+            interval = 150;
         }
-        interval = 150;
-        loop = false;
     }
+    // 2. DYING 狀態 (無頭走路)
     else if (m_CurrentState == State::DYING) {
         path = "resources/image/zombie/normal_zombie/die/ZombieLostHead";
     }
+    // 3. 存活狀態 (EATING / WALKING)
     else {
         if (m_Type == Type::POLEVAULTER) {
-
-            if (m_CurrentState == State::EATING) {
-                path = "resources/image/zombie/polevaulter_zombie/eat";
-            }
-            else if (m_IsPreparingJump) {
-                path = "resources/image/zombie/polevaulter_zombie/beforejump";
-            }
-            else if (m_HasJumped) {
-                path = "resources/image/zombie/polevaulter_zombie/afterjump";
-            }
-            else {
-                path = "resources/image/zombie/polevaulter_zombie/run";
-            }
+            if (m_CurrentState == State::EATING) path = "resources/image/zombie/polevaulter_zombie/eat";
+            else if (m_IsPreparingJump) path = "resources/image/zombie/polevaulter_zombie/beforejump";
+            else if (m_HasJumped) path = "resources/image/zombie/polevaulter_zombie/afterjump";
+            else path = "resources/image/zombie/polevaulter_zombie/run";
+        }
+        else if (m_Type == Type::FOOTBALL) {
+            path = (m_CurrentState == State::EATING) ? "resources/image/zombie/football_zombie/eat" : "resources/image/zombie/football_zombie";
         }
         else if (m_Type == Type::BUCKETHEAD) {
-            path = (m_CurrentState == State::EATING) ?
-                   "resources/image/zombie/buckethead_zombie/eat" :
-                   "resources/image/zombie/buckethead_zombie";
+            path = (m_CurrentState == State::EATING) ? "resources/image/zombie/buckethead_zombie/eat" : "resources/image/zombie/buckethead_zombie";
         }
         else if (m_Type == Type::CONEHEAD) {
-            path = (m_CurrentState == State::EATING) ?
-                   "resources/image/zombie/conehead_zombie/eat" :
-                   "resources/image/zombie/conehead_zombie";
-        }else if (m_Type == Type::FOOTBALL) {
-            path = (m_CurrentState == State::EATING) ?
-                   "resources/image/zombie/football_zombie/eat" :
-                   "resources/image/zombie/football_zombie";
+            path = (m_CurrentState == State::EATING) ? "resources/image/zombie/conehead_zombie/eat" : "resources/image/zombie/conehead_zombie";
         } else {
-            path = (m_CurrentState == State::EATING) ?
-                   "resources/image/zombie/normal_zombie/eat" :
-                   "resources/image/zombie/normal_zombie";
+            path = (m_CurrentState == State::EATING) ? "resources/image/zombie/normal_zombie/eat" : "resources/image/zombie/normal_zombie";
         }
     }
 
     auto frames = GetFramesFromFolder(path);
-    LOG_DEBUG("UpdateAnimation called, state: {}, path: {}, frames: {}",
-              (int)m_CurrentState, path, frames.size());
-
     if (frames.empty()) {
-        LOG_ERROR("ANIMATION ERROR: Folder is empty or wrong path: {}", path);
-        if (m_CurrentState == State::DEAD) m_DeathTimer = 1.0f;
+        LOG_ERROR("ANIMATION ERROR: {}", path);
         return;
     }
 
-    m_Animation = std::make_shared<Util::Animation>(frames, loop, interval, true);
+    m_BaseAnimInterval = interval;
+    int actualInterval = m_IsSlowed ? (interval * 2) : interval;
+
+    m_Animation = std::make_shared<Util::Animation>(frames, loop, actualInterval, true);
     m_Drawable = m_Animation;
 
+    // 精準計算倒下動畫的播放時間，播完剛好被 App.cpp 回收移除
     if (m_CurrentState == State::DEAD) {
-        // 🚩 如果是橄欖球殭屍，強行給他 2.5 秒的死亡停留時間（可根據你圖片張數自行調整，例如 2.0f 或 3.0f）
-        if (m_Type == Type::FOOTBALL) {
-            m_DeathTimer = 2.5f;
-        } else {
-            m_DeathTimer = (frames.size() * interval) / 1000.0f;
-        }
-        LOG_DEBUG("Zombie DEAD: Playing animation, will be removed in {}s", m_DeathTimer);
+        m_DeathTimer = (frames.size() * interval) / 1000.0f;
     }
 }
 
@@ -336,5 +264,21 @@ std::shared_ptr<ZombieHead> Zombie::SpawnHead() {
 }
 
 void Zombie::SlowDown(float duration) {
+    m_IsSlowed = true;
     m_SlowTimer = duration;
+    if (m_Animation) {
+        m_Animation->SetInterval(m_BaseAnimInterval * 2);
+    }
+}
+
+void Zombie::StartJump() {
+    if (m_Type != Type::POLEVAULTER) return;
+    if (m_HasJumped) return;
+    if (m_CurrentState == State::DEAD) return;
+
+    m_IsPreparingJump = true;
+    m_IsJumping = true;
+    m_CurrentState = State::WALKING;
+    m_JumpTimer = 5.2f;
+    UpdateAnimation();
 }

@@ -36,6 +36,7 @@ public:
     void Update(float dt);
     void SlowDown(float duration);
 
+    // 🚩 修正：如果已經在倒下了，讓 App.cpp 的戰鬥/吃植物邏輯放過牠
     bool IsDead() const { return m_CurrentState == State::DEAD; }
     bool IsDying() const { return m_CurrentState == State::DYING; }
 
@@ -45,6 +46,7 @@ public:
 
     glm::vec2 GetPosition() const { return m_Transform.translation; }
 
+    // 🚩 修正：只有當進入 DEAD 狀態，且倒下計時器真的扣完時，才允許 App.cpp 將本體移除
     bool CanRemove() const {
         return m_CurrentState == State::DEAD && m_DeathTimer <= 0.0f;
     }
@@ -72,6 +74,8 @@ private:
     State m_CurrentState = State::WALKING;
 
     float m_SlowTimer = 0.0f;
+    bool m_IsSlowed = false;
+    int m_BaseAnimInterval = 120;
 
     bool m_IsLostArm = false;
     bool m_IsDecapitated = false;

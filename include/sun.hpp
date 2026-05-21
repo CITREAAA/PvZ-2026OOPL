@@ -10,6 +10,7 @@
 class Sun : public Util::GameObject {
 private:
     float m_TargetY;
+    int m_SunValue = 25;
     float m_FallSpeed = 100.0f;
     bool m_IsCollected = false;
     bool m_IsExpired = false;
@@ -21,6 +22,9 @@ public:
     void Update(float dt);
 
     bool IsClicked(glm::vec2 mousePos);
+
+    void SetSunValue(int value) { m_SunValue = value; }
+    int GetSunValue() const { return m_SunValue; }
 
     void Collect() { m_IsCollected = true; }
 
