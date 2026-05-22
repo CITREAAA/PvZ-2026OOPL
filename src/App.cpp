@@ -98,32 +98,31 @@ void App::LoadLevelConfig(int level) {
     std::vector<int> allowed;
     switch (level) {
         case 1:allowed = {1, 2, 3};
-            m_CurrentLevelConfig = {15, 8.0f, 70, 20, 10,0,50,allowed}; break;
+            m_CurrentLevelConfig = {15, 8.0f, 70, 20, 10,0,50,0,allowed}; break;
         case 2:allowed = {1, 2, 3, 5, 6, 7, 12};
-            m_CurrentLevelConfig = {20, 8.0f, 70, 10, 10,10,0,allowed}; break;
+            m_CurrentLevelConfig = {20, 8.0f, 70, 10, 10,10,0,0,allowed}; break;
         case 3:allowed = {1, 2, 3, 5, 6};
-            m_CurrentLevelConfig = {25, 8.0f, 50, 20, 20,10,50,allowed}; break;
+            m_CurrentLevelConfig = {25, 8.0f, 50, 20, 20,10,50,0,allowed}; break;
         case 4:allowed = {1, 2, 3, 5, 6};
-            m_CurrentLevelConfig = {30, 8.0f, 40, 25, 25,10,50,allowed}; break;
+            m_CurrentLevelConfig = {30, 8.0f, 40, 25, 25,10,50,0,allowed}; break;
         case 5:allowed = {1, 2, 3, 5, 6, 7};
-            m_CurrentLevelConfig = {40, 8.0f, 50, 15, 15,10,10,allowed}; break;
+            m_CurrentLevelConfig = {40, 8.0f, 50, 15, 15,10,10,0,allowed}; break;
         case 6:allowed = {1, 8, 9, 10, 3, 7};
-            m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,0,50,allowed}; break;
+            m_CurrentLevelConfig = {15, 8.0f, 50, 15, 15,10,10,0,allowed}; break;
         case 7:allowed = {1, 8, 9, 10, 3, 7};
-            m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,0,50,allowed}; break;
+            m_CurrentLevelConfig = {20, 8.0f, 50, 15, 15,10,10,0,allowed}; break;
         case 8:allowed = {1, 8, 6, 10, 3, 7};
-            m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,0,50,allowed}; break;
+            m_CurrentLevelConfig = {25, 8.0f, 50, 15, 15,10,10,0,allowed}; break;
         case 9:allowed = {1, 8, 6, 10, 3, 7, 11};
-            m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,0,50,allowed}; break;
+            m_CurrentLevelConfig = {30, 8.0f, 20, 15, 15,15,15,20,allowed}; break;
         case 10:allowed = {8, 6, 10, 3, 7, 11, 12};
-            m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,0,50,allowed}; break;
+            m_CurrentLevelConfig = {40, 8.0f, 20, 15, 15,15,15,20,allowed}; break;
     }
     m_SeedBank->InitCards(allowed);
     m_TotalZombiesToSpawn = m_CurrentLevelConfig.totalZombies;
     m_ZombiesSpawnedInLevel = 0;
     m_ZombieSpawnTimer = 0.0f;
     m_SunCurrency = 50;
-    m_StateTimer = 0.0f;
 }
 
 void App::Update() {
@@ -146,6 +145,7 @@ void App::Update() {
         for (int i = 0; i < (int)m_LevelButtons.size(); ++i) {
             if (glm::distance(mousePos, m_LevelButtons[i]->m_Transform.translation) < 60.0f) {
                 m_LevelButtons[i]->m_Transform.scale = {1.1f, 1.1f};
+    m_StateTimer = 0.0f;
                 m_LevelTexts[i]->m_Transform.scale = {1.1f, 1.1f};
                 if (Util::Input::IsKeyDown(Util::Keycode::MOUSE_LB)) {
                     m_CurrentLevel = i + 1;
@@ -460,7 +460,7 @@ void App::Update() {
 
                 int totalW = m_CurrentLevelConfig.weightNormal + m_CurrentLevelConfig.weightCone +
                          m_CurrentLevelConfig.weightBucket + m_CurrentLevelConfig.weightPole +
-                         m_CurrentLevelConfig.weightFootball;
+                         m_CurrentLevelConfig.weightFootball+ m_CurrentLevelConfig.weightScreenDoor;;
                 if (totalW <= 0) totalW = 1;
 
                 int randVal = rand() % totalW;
@@ -471,7 +471,12 @@ void App::Update() {
                 else if (randVal < m_CurrentLevelConfig.weightNormal + m_CurrentLevelConfig.weightCone) { type = Zombie::Type::CONEHEAD; }
                 else if (randVal < m_CurrentLevelConfig.weightNormal + m_CurrentLevelConfig.weightCone + m_CurrentLevelConfig.weightBucket) { type = Zombie::Type::BUCKETHEAD; }
                 else if (randVal < m_CurrentLevelConfig.weightNormal + m_CurrentLevelConfig.weightCone + m_CurrentLevelConfig.weightBucket + m_CurrentLevelConfig.weightPole) { type = Zombie::Type::POLEVAULTER; }
-                else { type = Zombie::Type::FOOTBALL; }
+                else if (randVal < m_CurrentLevelConfig.weightNormal + m_CurrentLevelConfig.weightCone + m_CurrentLevelConfig.weightBucket + m_CurrentLevelConfig.weightPole + m_CurrentLevelConfig.weightFootball) {
+                    type = Zombie::Type::FOOTBALL;
+                }
+                else {
+                    type = Zombie::Type::SCREENDOOR;
+                }
 
                 float spawnY =m_Map->CalculateGridCenter(r, 8).y + 20.0f;
                 if (type == Zombie::Type::POLEVAULTER) { spawnY -= 10.0f; }
