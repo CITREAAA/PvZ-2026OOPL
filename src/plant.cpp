@@ -174,7 +174,6 @@ Plant::Type PotatoMine::GetType() const { return Plant::Type::MINE; }
 SnowPea::SnowPea(float x, float y) : Plant({}, 270, 175) {
     m_Transform.translation = {x, y};
     m_ZIndex = 10;
-    // 假設動畫資源放在 resources/image/snowpea
     auto paths = GetFramesFromFolder("resources/image/snowpea");
     if (!paths.empty()) {
         m_Animation = std::make_shared<Util::Animation>(paths, true, 150, true);
@@ -337,8 +336,15 @@ ScaredyShroom::ScaredyShroom(float x, float y) : Plant({}, 300, 25) {
     }
 }
 void ScaredyShroom::Update(float dt) {
-    m_FireTimer += dt;
-    if (m_FireTimer >= 1.45f) { m_CanFire = true; m_FireTimer = 0.0f; }
+    if (!m_IsScared) {
+        m_FireTimer += dt;
+        if (m_FireTimer >= 1.45f) {
+            m_CanFire = true;
+            m_FireTimer = 0.0f;
+        }
+    } else {
+        m_FireTimer = 0.0f;
+    }
 }
 void ScaredyShroom::SetScared(bool scared) {
     if (m_IsScared == scared) return;

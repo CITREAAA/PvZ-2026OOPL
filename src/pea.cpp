@@ -10,7 +10,7 @@ Pea::Pea(float x, float y, Type type, float maxDist)
     m_Speed = 300.0f;
 
     if (m_Type == Type::ICE) {
-        SetDrawable(std::make_shared<Util::Image>("resources/image/pea/ice_pea.png"));
+        SetDrawable(std::make_shared<Util::Image>("resources/image/pea/peaIce.png"));
     }
     // 🚩 讓 MUSHROOM 和 FUME 都使用這組動畫
     else if (m_Type == Type::MUSHROOM || m_Type == Type::FUME) {

@@ -11,7 +11,6 @@ namespace fs = std::filesystem;
 static std::vector<std::string> GetFramesFromFolder(const std::string& folderPath) {
     std::vector<std::string> paths;
     if (!fs::exists(folderPath)) return paths;
-
     for (const auto& entry : fs::directory_iterator(folderPath)) {
         if (entry.is_regular_file()) {
             std::string p = entry.path().string();
@@ -19,7 +18,6 @@ static std::vector<std::string> GetFramesFromFolder(const std::string& folderPat
             paths.push_back(p);
         }
     }
-
     std::sort(paths.begin(), paths.end(), [](const std::string& a, const std::string& b) {
         auto get_num = [](const std::string& s) {
             std::string stem = fs::path(s).stem().string();
@@ -34,7 +32,6 @@ static std::vector<std::string> GetFramesFromFolder(const std::string& folderPat
     return paths;
 }
 
-// --- ZombieHead 實作 ---
 ZombieHead::ZombieHead(float startX, float startY, float groundY) : m_Velocity({40.0f, 150.0f}) {
     m_Transform.translation = {startX, startY};
     m_ZIndex = 55;
@@ -62,27 +59,11 @@ Zombie::Zombie(float x, float y, Type type) : GameEntity("", 270.0f), m_Type(typ
     m_Transform.translation = {x, y};
     m_ZIndex = 50;
 
-    if (m_Type == Type::POLEVAULTER) {
-        m_Transform.translation.y += 20.0f;
-    }
-
-    if (m_Type == Type::BUCKETHEAD) {
-        m_ArmorHP = 1100.0f;
-    } else if (m_Type == Type::CONEHEAD) {
-        m_ArmorHP = 370.0f;
-    } else if (m_Type == Type::POLEVAULTER) {
-        m_ArmorHP = 0.0f;
-        m_Speed = 32.0f;
-    } else if (m_Type == Type::FOOTBALL) {
-        m_ArmorHP = 0.0f;
-        m_HP = 500.0f;
-        m_Speed = 45.0f;
-    }else if (m_Type == Type::SCREENDOOR) {
-        m_ArmorHP = 1100.0f;
-        m_Speed = 14.4f;
-    } else {
-        m_ArmorHP = 0.0f;
-    }
+    if (m_Type == Type::BUCKETHEAD) m_ArmorHP = 1100.0f;
+    else if (m_Type == Type::CONEHEAD) m_ArmorHP = 370.0f;
+    else if (m_Type == Type::POLEVAULTER) { m_Speed = 32.0f; m_Transform.translation.y += 20.0f; }
+    else if (m_Type == Type::FOOTBALL) { m_HP = 500.0f; m_Speed = 45.0f; }
+    else if (m_Type == Type::SCREENDOOR) { m_ArmorHP = 1100.0f; }
 
     m_EatSFX = std::make_shared<Util::SFX>("resources/music/zombieChomp.wav");
     m_BaseAnimInterval = 120;
@@ -90,61 +71,31 @@ Zombie::Zombie(float x, float y, Type type) : GameEntity("", 270.0f), m_Type(typ
 }
 
 void Zombie::Update(float dt) {
-    // 1. 死亡狀態檢查
     if (m_CurrentState == State::DEAD) {
         if (m_DeathTimer > 0.0f) m_DeathTimer -= dt;
         return;
     }
 
-    // 2. 處理減速狀態與計時
     if (m_IsSlowed) {
         m_SlowTimer -= dt;
-        if (m_SlowTimer <= 0.0f) {
-            m_IsSlowed = false;
-            m_SlowTimer = 0.0f;
-            if (m_Animation) m_Animation->SetInterval(m_BaseAnimInterval);
-        } else {
-            if (m_Animation) m_Animation->SetInterval(m_BaseAnimInterval * 2);
-        }
+        if (m_SlowTimer <= 0.0f) { m_IsSlowed = false; if(m_Animation) m_Animation->SetInterval(m_BaseAnimInterval); }
+        else if(m_Animation) m_Animation->SetInterval(m_BaseAnimInterval * 2);
     }
 
-    // 3. 處理啃食音效
     if (m_CurrentState == State::EATING) {
         m_EatSoundTimer -= dt;
-        if (m_EatSoundTimer <= 0.0f) {
-            if (m_EatSFX) m_EatSFX->Play();
-            m_EatSoundTimer = 0.6f;
-        }
-    } else {
-        m_EatSoundTimer = 0.0f;
+        if (m_EatSoundTimer <= 0.0f) { if(m_EatSFX) m_EatSFX->Play(); m_EatSoundTimer = 0.6f; }
     }
 
-    // 4. 致死與流血邏輯
-    if (m_IsDecapitated || m_CurrentState == State::DYING) {
-        m_HP -= 60.0f * dt;
-    }
+    if (m_IsDecapitated || m_CurrentState == State::DYING) m_HP -= 60.0f * dt;
+    if (m_HP <= 0.0f) { SetState(State::DEAD); return; }
 
-    if (m_HP <= 0.0f) {
-        m_HP = 0.0f;
-        SetState(State::DEAD);
-        return;
-    }
-
-    // 5. 移動邏輯 (受減速影響)
     if (m_CurrentState == State::WALKING || m_CurrentState == State::DYING) {
         if (m_IsJumping) {
             m_JumpTimer -= dt;
-            if (m_JumpTimer <= 0.0f) {
-                m_IsJumping = false;
-                m_IsPreparingJump = false;
-                m_HasJumped = true;
-                m_Transform.translation.x -= 130.0f;
-                m_Speed = 14.4f;
-                UpdateAnimation();
-            }
+            if (m_JumpTimer <= 0.0f) { m_IsJumping = false; m_IsPreparingJump = false; m_HasJumped = true; m_Transform.translation.x -= 130.0f; m_Speed = 14.4f; UpdateAnimation(); }
         } else {
-            float actualSpeed = m_IsSlowed ? (m_Speed * 0.5f) : m_Speed;
-            m_Transform.translation.x -= actualSpeed * dt;
+            m_Transform.translation.x -= (m_IsSlowed ? m_Speed * 0.5f : m_Speed) * dt;
         }
     }
 }
@@ -155,54 +106,27 @@ void Zombie::TakeDamage(int damage) {
 
     if (m_ArmorHP > 0.0f) {
         m_ArmorHP -= dmg;
-        if (m_ArmorHP <= 0.0f) {
-            dmg = -m_ArmorHP;
-            m_ArmorHP = 0.0f;
-            m_Type = Type::NORMAL;
-            UpdateAnimation();
-        } else {
-            dmg = 0.0f;
-        }
+        if (m_ArmorHP <= 0.0f) { dmg = -m_ArmorHP; m_ArmorHP = 0.0f; m_Type = Type::NORMAL; UpdateAnimation(); }
+        else dmg = 0.0f;
     }
 
     if (dmg > 0.0f) {
         m_HP -= dmg;
-        if (m_HP <= 0.0f) {
-            m_HP = 0.0f;
-            SetState(State::DEAD);
-        } else if (m_HP < 90.0f && !m_IsDecapitated) {
+        if (m_HP <= 0.0f) SetState(State::DEAD);
+        else if (m_HP < 90.0f && !m_IsDecapitated) {
             m_IsDecapitated = true;
-
-            // 🚩 只有普通/三角錐/鐵桶會進入 DYING (掉頭) 狀態
-            // 橄欖球跟撐竿跳會直接流血扣到 HP=0，跳過 DYING 進入 DEAD
-            if (m_Type == Type::NORMAL || m_Type == Type::CONEHEAD || m_Type == Type::BUCKETHEAD) {
-                SetState(State::DYING);
-            }
+            if (m_Type == Type::NORMAL || m_Type == Type::CONEHEAD || m_Type == Type::BUCKETHEAD) SetState(State::DYING);
         }
     }
 }
 
 void Zombie::TakePenetratingDamage(int damage) {
     if (m_CurrentState == State::DEAD) return;
-
-    // 🌟 留給隊友的合併區塊 🌟
-    // 等隊友把 SCREENDOOR (紗門殭屍) 寫好後，直接把這段解開：
-    /*
     if (m_Type == Type::SCREENDOOR) {
-        float dmg = static_cast<float>(damage);
-        m_HP -= dmg;
-        if (m_HP <= 0.0f) {
-            m_HP = 0.0f;
-            SetState(State::DEAD);
-        } else if (m_HP < 90.0f && !m_IsDecapitated) {
-            m_IsDecapitated = true;
-            SetState(State::DYING);
-        }
-        return; // 扣完本體血量就 return，不要扣到紗門的裝甲
+        m_HP -= (float)damage;
+        if (m_HP <= 0.0f) SetState(State::DEAD);
+        return;
     }
-    */
-
-    // 至於其他的鐵桶、三角錐、普通殭屍，大噴菇的噴霧一樣會先打在裝甲上
     TakeDamage(damage);
 }
 
