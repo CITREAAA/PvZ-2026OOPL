@@ -8,6 +8,7 @@ Pea::Pea(float x, float y, Type type) : m_Type(type) {
     } else {
         SetDrawable(std::make_shared<Util::Image>("resources/image/pea/pea.png"));
     }
+    m_ZIndex = 60;
 }
 
 void Pea::Update(float dt) {

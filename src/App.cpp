@@ -167,6 +167,39 @@ void App::Update() {
     // --- [ 狀態 C: 遊戲更新 ] ---
     else if (m_CurrentState == State::UPDATE) {
 
+            // 按下 F1：獲得 1000 陽光
+            if (Util::Input::IsKeyDown(Util::Keycode::F1)) {
+                m_SunCurrency += 1000;
+                if (m_SunCollectSFX) m_SunCollectSFX->Play();
+                LOG_DEBUG("作弊碼觸發：獲得 1000 陽光！目前陽光：{}", m_SunCurrency);
+            }
+
+            // 按下 F2：全畫面殭屍直接暴斃
+            if (Util::Input::IsKeyDown(Util::Keycode::F2)) {
+                for (auto& z : m_zombies) {
+                    if (!z->IsDead()) {
+                        z->TakeDamage(9999);
+                    }
+                }
+                if (m_ExplodeSFX) m_ExplodeSFX->Play();
+                LOG_DEBUG("作弊碼觸發：全場殭屍秒殺！");
+            }
+
+            // 按下 F3：強制直接過關
+            if (Util::Input::IsKeyDown(Util::Keycode::F3)) {
+                // 直接把剩餘要生的殭屍歸零，並把場上的清空
+                m_ZombiesSpawnedInLevel = m_TotalZombiesToSpawn;
+                for (auto& z : m_zombies) z->TakeDamage(9999);
+                LOG_DEBUG("作弊碼觸發：強制勝利通關！");
+            }
+            if (Util::Input::IsKeyDown(Util::Keycode::F4)) {
+                if (m_SeedBank) {
+                    m_SeedBank->ResetAllCooldowns();
+                    if (m_PlantSeedSFX) m_PlantSeedSFX->Play(); // 播放拿起卡片的音效
+                    LOG_DEBUG("作弊碼觸發：全植物冷卻完畢！");
+                }
+            }
+
         // --- 🚩 處理除草機移動與殺殭屍 ---
         for (auto& mower : m_LawnMowers) {
             if (mower->state == LawnMowerData::State::MOVING) {
@@ -657,9 +690,15 @@ void App::UpdatePlantActions() {
                     if (m_ExplodeSFX) m_ExplodeSFX->Play();
                     for (auto& z : m_zombies) {
                         if (z->IsDead()) continue;
-                        float dist = glm::distance(cherry->GetPosition(), z->GetPosition());
-                        int zR, zC;
-                        if (m_Map->GetGridIndex(z->GetPosition(), zR, zC) && dist <= 115.0f && std::abs(zR - r) <= 1) z->TakeDamage(1800);
+
+                        int zRow, zCol;
+                        if (m_Map->GetGridIndex(z->GetPosition(), zRow, zCol)) {
+                            float distX = std::abs(cherry->GetPosition().x - z->GetPosition().x);
+
+                            if (distX <= 150.0f && std::abs(zRow - r) <= 1) {
+                                z->TakeDamage(1800);
+                            }
+                        }
                     }
                 }
             }

@@ -103,6 +103,12 @@ public:
         else m_CooldownTimers[type] = 7.5f; // 其餘蘑菇與豌豆多為 7.5s
     }
 
+    void ResetAllCooldowns() {
+        for (auto& pair : m_CooldownTimers) {
+            pair.second = 0.0f; // 直接把所有植物的剩餘冷卻時間歸零！
+        }
+    }
+
     void SetSunCount(int count) {
         m_CurrentSun = count;
         m_SunText->SetText(std::to_string(count));
