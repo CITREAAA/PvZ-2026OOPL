@@ -33,6 +33,8 @@ public:
     float GetAttackPower() const { return m_AttackPower; }
 
     void TakeDamage(int damage);
+    void TakePenetratingDamage(int damage);
+
     void Update(float dt);
     void SlowDown(float duration);
 

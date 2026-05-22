@@ -262,6 +262,7 @@ Plant::Type Repeater::GetType() const { return Plant::Type::REPEATER; }
 // [ 夜晚植物蘑菇類實作 ]
 // =============================================================================
 
+
 // --- 1. SunShroom (陽光蘑菇) ---
 SunShroom::SunShroom(float x, float y) : Plant({}, 300, 25) {
     m_Transform.translation = {x, y};
@@ -290,7 +291,6 @@ void SunShroom::Update(float dt) {
     }
 }
 Plant::Type SunShroom::GetType() const { return Plant::Type::SUNSHROOM; }
-
 
 // --- 2. PuffShroom (小噴菇) ---
 PuffShroom::PuffShroom(float x, float y) : Plant({}, 300, 0) {

@@ -179,6 +179,30 @@ void Zombie::TakeDamage(int damage) {
     }
 }
 
+void Zombie::TakePenetratingDamage(int damage) {
+    if (m_CurrentState == State::DEAD) return;
+
+    // 🌟 留給隊友的合併區塊 🌟
+    // 等隊友把 SCREENDOOR (紗門殭屍) 寫好後，直接把這段解開：
+    /*
+    if (m_Type == Type::SCREENDOOR) {
+        float dmg = static_cast<float>(damage);
+        m_HP -= dmg;
+        if (m_HP <= 0.0f) {
+            m_HP = 0.0f;
+            SetState(State::DEAD);
+        } else if (m_HP < 90.0f && !m_IsDecapitated) {
+            m_IsDecapitated = true;
+            SetState(State::DYING);
+        }
+        return; // 扣完本體血量就 return，不要扣到紗門的裝甲
+    }
+    */
+
+    // 至於其他的鐵桶、三角錐、普通殭屍，大噴菇的噴霧一樣會先打在裝甲上
+    TakeDamage(damage);
+}
+
 void Zombie::SetState(State state) {
     if (m_CurrentState == state || m_CurrentState == State::DEAD) return;
     m_CurrentState = state;

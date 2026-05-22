@@ -108,7 +108,7 @@ void App::LoadLevelConfig(int level) {
         case 5:allowed = {1, 2, 3, 5, 6, 7};
             m_CurrentLevelConfig = {40, 8.0f, 50, 15, 15,10,10,allowed}; break;
         case 6:allowed = {1, 8, 9, 10, 3, 7};
-            m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,0,50,allowed}; break;
+            m_CurrentLevelConfig = {15, 8.0f, 100, 0, 0,0,50,allowed}; break;
         case 7:allowed = {1, 8, 9, 10, 3, 7};
             m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,0,50,allowed}; break;
         case 8:allowed = {1, 8, 6, 10, 3, 7};
@@ -388,18 +388,55 @@ void App::Update() {
             if (s->ShouldRemove()) { m_Root.RemoveChild(s); return true; } return false;
         }), m_Suns.end());
 
+        // --- 🚩 修正版：子彈更新與碰撞迴圈 ---
+        // --- 🚩 子彈更新與碰撞迴圈 ---
         for (auto it = m_Peas.begin(); it != m_Peas.end(); ) {
-            (*it)->Update(dt);
-            bool peaHit = false;
+            Pea* peaPtr = it->get();
+            peaPtr->Update(dt);
+
+            // 1. 超出螢幕邊界 -> 刪除
+            if (peaPtr->IsOffScreen()) {
+                m_Root.RemoveChild(*it);
+                it = m_Peas.erase(it);
+                continue;
+            }
+
+            // 2. 超過最大射程 (小噴菇、大噴菇) -> 刪除
+            float traveledDist = peaPtr->GetPosition().x - peaPtr->GetStartX();
+            if (traveledDist > peaPtr->GetMaxTravelDist()) {
+                m_Root.RemoveChild(*it);
+                it = m_Peas.erase(it);
+                continue;
+            }
+
+            // 3. 🚩 如果是大噴菇的子彈 (FUME)，直接跳過碰撞檢查，讓它繼續飛！
+            if (peaPtr->GetPeaType() == Pea::Type::FUME) {
+                ++it;
+                continue;
+            }
+
+            // 4. 實體子彈 (豌豆、冰雪、小噴菇) 的碰撞判定
+            bool peaDestroyed = false;
             for (auto& z : m_zombies) {
-                if (!z->IsDead() && glm::distance((*it)->GetPosition(), z->GetPosition()) < 40.0f) {
-                    z->TakeDamage(20);
-                    if ((*it)->GetPeaType() == Pea::Type::ICE) z->SlowDown(10.0f); // 🚩 補回冰凍減速
+                if (z->IsDead()) continue;
+                if (glm::distance(peaPtr->GetPosition(), z->GetPosition()) < 40.0f) {
+                    z->TakeDamage(20); // 扣血
+                    if (peaPtr->GetPeaType() == Pea::Type::ICE) {
+                        z->SlowDown(10.0f); // 冰凍減速
+                    }
                     if (m_PeaHitSFX) m_PeaHitSFX->Play();
-                    peaHit = true; break;
+                    peaDestroyed = true;
+                    break;
                 }
             }
-            if (peaHit || (*it)->IsOffScreen()) { m_Root.RemoveChild(*it); it = m_Peas.erase(it); } else ++it;
+
+            // 撞到就刪除
+            if (peaDestroyed) {
+                m_Root.RemoveChild(*it);
+                it = m_Peas.erase(it);
+            } else {
+                ++it;
+            }
         }
 
         // =====================================================================
@@ -643,35 +680,73 @@ void App::UpdatePlantActions() {
                     repeater->ResetFireFlag();
                 } else if (!rowHasZombie[r]) repeater->ResetFireFlag();
             }
-            // 3. 蘑菇類
+            // --- 6. 小噴菇 (射程 3 格) ---
             else if (auto puff = std::dynamic_pointer_cast<PuffShroom>(plant)) {
                 bool zombieInRange = false;
                 for (auto& z : m_zombies) {
+                    if (z->IsDead()) continue;
                     float dist = z->GetPosition().x - puff->GetPosition().x;
-                    if (dist > 0 && dist < 300.0f && std::abs(z->GetPosition().y - puff->GetPosition().y) < 50.0f) {
+                    // 三格距離約為 240.0f
+                    if (dist > 0 && dist < 240.0f && std::abs(z->GetPosition().y - puff->GetPosition().y) < 50.0f) {
                         zombieInRange = true; break;
                     }
                 }
                 if (zombieInRange && puff->CanFire()) {
-                    auto p = std::make_shared<Pea>(puff->GetPosition().x + 20.0f, puff->GetPosition().y + 20.0f, Pea::Type::NORMAL);
+                    // 🚩 這裡傳入 240.0f 當作子彈的最大射程！
+                    auto p = std::make_shared<Pea>(puff->GetPosition().x + 20.0f, puff->GetPosition().y + 20.0f, Pea::Type::MUSHROOM, 240.0f);
                     m_Peas.push_back(p); m_Root.AddChild(p); puff->ResetFireFlag();
                 }
             }
+            // --- 7. 大噴菇 (群體傷害) ---
             else if (auto fume = std::dynamic_pointer_cast<FumeShroom>(plant)) {
                 if (rowHasZombie[r] && fume->CanFire()) {
+                    bool hitAny = false;
+                    float fumeX = fume->GetPosition().x;
+                    float maxScreenX = 400.0f;
+
                     for (auto& z : m_zombies) {
-                        float dist = z->GetPosition().x - fume->GetPosition().x;
-                        if (dist > 0 && dist < 400.0f && std::abs(z->GetPosition().y - fume->GetPosition().y) < 50.0f) z->TakeDamage(20);
+                        if (z->IsDead()) continue;
+                        float zombieX = z->GetPosition().x;
+                        float dist = zombieX - fumeX;
+
+                        // 🚩 修改 1：條件變成「殭屍在右邊 (dist > 0) 且 殭屍的 X 坐標小於等於 530」
+                        if (dist > 0 && zombieX <= maxScreenX && std::abs(z->GetPosition().y - fume->GetPosition().y) < 50.0f) {
+                            z->TakePenetratingDamage(20);
+                            hitAny = true;
+                        }
                     }
+
+                    if (hitAny && m_PeaHitSFX) m_PeaHitSFX->Play();
+
+                    // 🚩 修改 2：計算子彈「實際需要飛多遠」才會碰到 530 的空氣牆
+                    float startX = fumeX + 30.0f;
+                    float travelDist = maxScreenX - startX;
+
+                    if (travelDist > 0) { // 確保大噴菇沒有被種在超過 530 的地方
+                        auto p = std::make_shared<Pea>(startX, fume->GetPosition().y + 20.0f, Pea::Type::FUME, travelDist);
+                        m_Peas.push_back(p);
+                        m_Root.AddChild(p);
+                    }
+
                     fume->ResetFireFlag();
                 }
             }
+            // --- 8. 膽小菇 (3x3 隱藏判定) ---
             else if (auto scaredy = std::dynamic_pointer_cast<ScaredyShroom>(plant)) {
                 bool nearby = false;
-                for (auto& z : m_zombies) { if (glm::distance(scaredy->GetPosition(), z->GetPosition()) < 150.0f) { nearby = true; break; } }
+                for (auto& z : m_zombies) {
+                    if (z->IsDead()) continue;
+                    float dx = std::abs(z->GetPosition().x - scaredy->GetPosition().x);
+                    float dy = std::abs(z->GetPosition().y - scaredy->GetPosition().y);
+                    // 3x3 街區判定：上下各一排，左右各一格
+                    if (dx <= 120.0f && dy <= 120.0f) {
+                        nearby = true; break;
+                    }
+                }
                 scaredy->SetScared(nearby);
                 if (!scaredy->IsScared() && rowHasZombie[r] && scaredy->CanFire()) {
-                    auto p = std::make_shared<Pea>(scaredy->GetPosition().x + 30.0f, scaredy->GetPosition().y + 35.0f, Pea::Type::NORMAL);
+                    // 膽小菇射程無限，不傳 maxDist
+                    auto p = std::make_shared<Pea>(scaredy->GetPosition().x + 30.0f, scaredy->GetPosition().y + 35.0f, Pea::Type::MUSHROOM);
                     m_Peas.push_back(p); m_Root.AddChild(p); scaredy->ResetFireFlag();
                 }
             }
