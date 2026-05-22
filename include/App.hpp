@@ -54,6 +54,7 @@ private:
         int weightBucket;
         int weightPole;
         int weightFootball;
+        int weightScreenDoor;
         std::vector<int> allowedPlants;
     };
 

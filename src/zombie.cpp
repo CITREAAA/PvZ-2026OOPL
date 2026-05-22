@@ -77,6 +77,9 @@ Zombie::Zombie(float x, float y, Type type) : GameEntity("", 270.0f), m_Type(typ
         m_ArmorHP = 0.0f;
         m_HP = 500.0f;
         m_Speed = 45.0f;
+    }else if (m_Type == Type::SCREENDOOR) {
+        m_ArmorHP = 1100.0f;
+        m_Speed = 14.4f;
     } else {
         m_ArmorHP = 0.0f;
     }
@@ -256,8 +259,23 @@ void Zombie::UpdateAnimation() {
         }
         else if (m_Type == Type::CONEHEAD) {
             path = (m_CurrentState == State::EATING) ? "resources/image/zombie/conehead_zombie/eat" : "resources/image/zombie/conehead_zombie";
+            // 🚩 新增：紗門殭屍的外觀判定
+        }else if (m_Type == Type::SCREENDOOR) {
+            if (m_ArmorHP > 0.0f) {
+                // 紗門還在
+                path = (m_CurrentState == State::EATING) ?
+                       "resources/image/zombie/screendoor_zombie/eat" :
+                       "resources/image/zombie/screendoor_zombie";
+            } else {
+                // 紗門被打爆了，外觀直接扒光變成普通殭屍！
+                path = (m_CurrentState == State::EATING) ?
+                       "resources/image/zombie/normal_zombie/eat" :
+                       "resources/image/zombie/normal_zombie";
+            }
+
         } else {
             path = (m_CurrentState == State::EATING) ? "resources/image/zombie/normal_zombie/eat" : "resources/image/zombie/normal_zombie";
+
         }
     }
 
