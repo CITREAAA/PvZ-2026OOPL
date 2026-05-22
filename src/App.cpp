@@ -96,18 +96,17 @@ void App::LoadLevelConfig(int level) {
     m_Map->SetZIndex(0);
 
     std::vector<int> allowed;
-    // 👇 完全保留你的 case 設定，一個數字都沒動！
     switch (level) {
         case 1:allowed = {1, 2, 3};
             m_CurrentLevelConfig = {15, 8.0f, 70, 20, 10,0,50,allowed}; break;
         case 2:allowed = {1, 2, 3, 5, 6, 7, 12};
-            m_CurrentLevelConfig = {20, 8.0f, 30, 10, 10,50,50,allowed}; break;
+            m_CurrentLevelConfig = {20, 8.0f, 70, 10, 10,10,0,allowed}; break;
         case 3:allowed = {1, 2, 3, 5, 6};
-            m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,0,50,allowed}; break;
+            m_CurrentLevelConfig = {25, 8.0f, 50, 20, 20,10,50,allowed}; break;
         case 4:allowed = {1, 2, 3, 5, 6};
-            m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,0,50,allowed}; break;
+            m_CurrentLevelConfig = {30, 8.0f, 40, 25, 25,10,50,allowed}; break;
         case 5:allowed = {1, 2, 3, 5, 6, 7};
-            m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,0,50,allowed}; break;
+            m_CurrentLevelConfig = {40, 8.0f, 50, 15, 15,10,10,allowed}; break;
         case 6:allowed = {1, 8, 9, 10, 3, 7};
             m_CurrentLevelConfig = {2, 8.0f, 100, 0, 0,0,50,allowed}; break;
         case 7:allowed = {1, 8, 9, 10, 3, 7};
