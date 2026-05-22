@@ -157,7 +157,7 @@ void Zombie::UpdateAnimation() {
             interval = 150;
         } else if (m_Type == Type::POLEVAULTER) {
             path = "resources/image/zombie/polevaulter_zombie/die";
-            interval = 120;
+            interval = 150;
         } else {
             path = "resources/image/zombie/normal_zombie/die/ZombieDie";
             interval = 150;
