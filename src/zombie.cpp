@@ -230,6 +230,9 @@ std::shared_ptr<ZombieHead> Zombie::SpawnHead() {
 }
 
 void Zombie::SlowDown(float duration) {
+    if (m_Type == Type::SCREENDOOR) {
+        return;
+    }
     m_IsSlowed = true;
     m_SlowTimer = duration;
     if (m_Animation) {

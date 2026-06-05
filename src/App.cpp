@@ -815,20 +815,28 @@ void App::UpdatePlantActions() {
             else if (auto scaredy = std::dynamic_pointer_cast<ScaredyShroom>(plant)) {
                 bool nearby = false;
 
+                // 1. 取得膽小菇自己的精確格位
+                int plantRow, plantCol;
+                m_Map->GetGridIndex(scaredy->GetPosition(), plantRow, plantCol);
+
+                // 2. 遍歷殭屍，用相同的 GetGridIndex 判定位置
                 for (auto& z : m_zombies) {
                     if (z->IsDead()) continue;
 
-                    float dist = glm::distance(z->GetPosition(), scaredy->GetPosition());
-
-                    // 如果距離小於 130px (約 1.5 格)，就判定為「在範圍內」
-                    if (dist < 130.0f) {
-                        nearby = true;
-                        break;
+                    int zRow, zCol;
+                    // 使用地圖的座標轉換，這能保證跟地圖邏輯完全一致
+                    if (m_Map->GetGridIndex(z->GetPosition(), zRow, zCol)) {
+                        // 判定是否在九宮格內 (包含中間這一格與周圍八格)
+                        if (std::abs(zRow - plantRow) <= 1 && std::abs(zCol - plantCol) <= 1) {
+                            nearby = true;
+                            break;
+                        }
                     }
                 }
 
                 scaredy->SetScared(nearby);
 
+                // 攻擊邏輯
                 if (!scaredy->IsScared() && rowHasZombie[r] && scaredy->CanFire()) {
                     auto p = std::make_shared<Pea>(scaredy->GetPosition().x + 30.0f, scaredy->GetPosition().y + 35.0f, Pea::Type::MUSHROOM);
                     m_Peas.push_back(p);
