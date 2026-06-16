@@ -17,7 +17,6 @@
 #include <vector>
 #include <memory>
 
-
 class App {
 public:
     enum class State {
@@ -36,8 +35,6 @@ public:
     void End();
 
 private:
-
-
     struct LawnMowerData {
         enum class State { IDLE, MOVING, REMOVED };
         std::shared_ptr<Util::GameObject> obj;
@@ -59,38 +56,17 @@ private:
     };
 
     float m_StateTimer = 0.0f;
-
     int m_ZombiesSpawnedInLevel = 0;
     int m_TotalZombiesToSpawn = 0;
     float m_ZombieSpawnTimer = 0.0f;
     LevelConfig m_CurrentLevelConfig;
 
-    // --- 核心狀態管理 ---
     State m_CurrentState = State::START;
     Util::Renderer m_Root;
-
-    float skySunTimer = 0.0f;
-
-    void UpdateStartState(glm::vec2 mousePos);
-    void UpdateSelectLevelState(glm::vec2 mousePos);
-    void UpdateGameState(float dt, glm::vec2 mousePos);
-    void UpdateDefeatState(float dt);
-
-    void HandleInput(glm::vec2 mousePos);
-    void ExecutePlanting(glm::vec2 mousePos);
-
-    void UpdatePlants(float dt);
-    void UpdateZombies(float dt);
-    void UpdateProjectiles(float dt);
-    void UpdateLawnMowers(float dt);
-    void UpdateSuns(float dt);
-
-    bool CheckGameOver(float dt);
 
     std::shared_ptr<Util::Image> m_ImgPea;
     std::shared_ptr<Util::Image> m_ImgSun;
     std::shared_ptr<Util::Image> m_ImgNut;
-
     std::shared_ptr<Util::Image> m_ImgPotatoMine;
     std::shared_ptr<Util::Image> m_ImgSnowPea;
     std::shared_ptr<Util::Image> m_ImgCherry;
@@ -99,55 +75,47 @@ private:
     std::shared_ptr<Util::Image> m_ImgFume;
     std::shared_ptr<Util::Image> m_ImgScaredy;
     std::shared_ptr<Util::Image> m_ImgRepeater;
+    std::shared_ptr<Util::Image> m_ImgShovel;
 
-
-    // --- 首頁選單物件 ---
     std::shared_ptr<Util::GameObject> m_MenuBackground;
     std::shared_ptr<Util::GameObject> m_StartButton;
-
-    // --- 關卡選擇物件 ---
     std::shared_ptr<Util::GameObject> m_SelectLevelBG;
     std::vector<std::shared_ptr<Util::GameObject>> m_LevelButtons;
     std::vector<std::shared_ptr<Util::GameObject>> m_LevelTexts;
     int m_CurrentLevel = 0;
 
-    // --- 地圖與植物系統 ---
     std::shared_ptr<GameMap> m_Map;
     std::vector<std::shared_ptr<Pea>> m_Peas;
-
-    // --- 殭屍系統 ---
     std::vector<std::shared_ptr<Zombie>> m_zombies;
     std::vector<std::shared_ptr<ZombieHead>> m_ZombieHeads;
-
-    // --- 陽光系統 ---
     std::vector<std::shared_ptr<Sun>> m_Suns;
     int m_SunCurrency = 50;
 
-    // --- UI 與 拖曳系統 ---
-    std::shared_ptr<Util::Image> m_ImgShovel;
     std::shared_ptr<SeedBank> m_SeedBank;
     std::shared_ptr<Util::GameObject> m_DragPreview;
     int m_SelectedPlantType = 0;
-
     std::shared_ptr<Util::GameObject> m_DefeatScreen;
 
-    // --- 音訊系統 ---
     std::shared_ptr<Util::BGM> m_MenuBGM;
     std::shared_ptr<Util::BGM> m_GameBGM;
-    std::shared_ptr<Util::SFX> m_SunCollectSFX; // 收集陽光
-    std::shared_ptr<Util::SFX> m_PlantSeedSFX;  // 種下植物
-    std::shared_ptr<Util::SFX> m_PeaHitSFX;     // 豌豆打到殭屍 (給 App.cpp 判定碰撞用)
+    std::shared_ptr<Util::SFX> m_SunCollectSFX;
+    std::shared_ptr<Util::SFX> m_PlantSeedSFX;
+    std::shared_ptr<Util::SFX> m_PeaHitSFX;
     std::shared_ptr<Util::SFX> m_DefeatSFX;
     std::shared_ptr<Util::SFX> m_ExplodeSFX;
-
 
     std::vector<std::shared_ptr<LawnMowerData>> m_LawnMowers;
     std::shared_ptr<Util::SFX> m_LawnMowerSFX;
 
+    // 內部子函式
     void ResetGame();
     void LoadLevelConfig(int level);
     void UpdatePlantActions();
-    void ValidTask();
+    void ExecutePlanting(glm::vec2 mousePos);
+    void UpdateLawnMowers(float dt);
+    void UpdateSuns(float dt);
+    void UpdateProjectiles(float dt);
+    void UpdateZombies(float dt);
 };
 
 #endif
