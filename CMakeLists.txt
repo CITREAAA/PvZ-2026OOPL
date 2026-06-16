@@ -46,14 +46,6 @@ add_executable(${PROJECT_NAME}
         src/zombie.cpp
 )
 
-# 🚩 【核心修正】：這三行屬性必須在 add_executable 建立 ${PROJECT_NAME} 目標之後立刻執行！
-# 這樣 CMake 才能精確地把工作目錄注入到 CLion 剛為這個執行檔生成的設定中
-set_target_properties(${PROJECT_NAME} PROPERTIES
-        VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-        XCODE_SCHEME_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
-)
-set(CMAKE_RUN_CONSTRAINTS_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
-
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W4)
 else()
@@ -73,4 +65,12 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/i
 target_link_libraries(${PROJECT_NAME}
         SDL2::SDL2main
         PTSD
+)
+
+# 🚩 【救命的終極大招】：直接在編譯資料夾底下建立資源捷徑！
+# 不管 CLion 在哪裡執行，執行檔旁邊都一定會有這個捷徑，直接通往你的 resources
+file(CREATE_LINK
+        "${CMAKE_CURRENT_SOURCE_DIR}/resources"
+        "${CMAKE_CURRENT_BINARY_DIR}/resources"
+        SYMBOLIC
 )
