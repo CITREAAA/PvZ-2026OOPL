@@ -1,5 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
 
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
 project(PvZ)
 
 set(CMAKE_CXX_STANDARD 17)
@@ -10,15 +12,15 @@ include(FetchContent)
 set(FETCHCONTENT_QUIET FALSE)
 
 FetchContent_Declare(
-    ptsd
+        ptsd
 
-    URL         https://github.com/ntut-open-source-club/practical-tools-for-simple-design/archive/refs/tags/v0.2.zip
+        URL         https://github.com/ntut-open-source-club/practical-tools-for-simple-design/archive/refs/tags/v0.2.zip
 
-    # Or alternatively if you want to use a specific git commit instead of a release:
-    # GIT_REPOSITORY  https://github.com/ntut-open-source-club/practical-tools-for-simple-design.git
-    # GIT_TAG         <git_tag>
+        # Or alternatively if you want to use a specific git commit instead of a release:
+        # GIT_REPOSITORY  https://github.com/ntut-open-source-club/practical-tools-for-simple-design.git
+        # GIT_TAG         <git_tag>
 
-    SOURCE_DIR  ${CMAKE_CURRENT_SOURCE_DIR}/PTSD
+        SOURCE_DIR  ${CMAKE_CURRENT_SOURCE_DIR}/PTSD
 )
 
 FetchContent_MakeAvailable(ptsd)
@@ -33,11 +35,9 @@ list(TRANSFORM INCLUDE_FILES PREPEND ${INCLUDE_DIR}/)
 # file(GLOB_RECURSE HEADER_FILES include/*)
 
 add_executable(${PROJECT_NAME}
-    ${SRC_DIR}/main.cpp
-    ${SRC_FILES}
-    ${HEADER_FILES}
-        include/App.hpp
-        src/App.cpp
+        ${SRC_DIR}/main.cpp
+        ${SRC_FILES}
+        ${HEADER_FILES}
         include/App.hpp
         src/App.cpp
         include/gameMap.hpp
@@ -72,6 +72,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/P
 target_include_directories(${PROJECT_NAME} PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
 target_link_libraries(${PROJECT_NAME}
-    SDL2::SDL2main
-    PTSD
+        SDL2::SDL2main
+        PTSD
 )
