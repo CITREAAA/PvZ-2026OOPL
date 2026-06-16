@@ -9,10 +9,6 @@ set(CMAKE_CXX_STANDARD 17)
 
 cmake_policy(SET CMP0135 NEW)
 
-# 🚩 【核心修復一】：強制叫 CLion 把未來生成的 Run Configuration 工作目錄鎖定在專案根目錄
-# 這行必須寫在 FetchContent 之前，確保全域生效
-set(CMAKE_RUN_CONSTRAINTS_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
-
 include(FetchContent)
 set(FETCHCONTENT_QUIET FALSE)
 
@@ -50,11 +46,13 @@ add_executable(${PROJECT_NAME}
         src/zombie.cpp
 )
 
-# 🚩 【核心修復二】：針對現代 CLion、VS 和 Xcode 執行檔屬性進行強制綁定
+# 🚩 【核心修正】：這三行屬性必須在 add_executable 建立 ${PROJECT_NAME} 目標之後立刻執行！
+# 這樣 CMake 才能精確地把工作目錄注入到 CLion 剛為這個執行檔生成的設定中
 set_target_properties(${PROJECT_NAME} PROPERTIES
         VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
         XCODE_SCHEME_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )
+set(CMAKE_RUN_CONSTRAINTS_WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}")
 
 if(MSVC)
     target_compile_options(${PROJECT_NAME} PRIVATE /W4)
