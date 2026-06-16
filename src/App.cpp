@@ -11,7 +11,7 @@
 #include "Util/Logger.hpp"
 #include <algorithm>
 
-// =============================================================================
+// ===========================================================F==================
 // [ 初始化 ]
 // =============================================================================
 
@@ -30,7 +30,7 @@ void App::Start() {
     m_ImgCherry     = std::make_shared<Util::Image>("resources/image/cherrybomb/1.png");
     m_ImgRepeater   = std::make_shared<Util::Image>("resources/image/repeaterpea/1.png");
 
-    // 首頁
+    // 首頁與背景
     m_MenuBackground = std::make_shared<Util::GameObject>();
     m_MenuBackground->SetDrawable(std::make_shared<Util::Image>("resources/image/menu/menu.png"));
     m_MenuBackground->SetZIndex(10);
@@ -40,11 +40,11 @@ void App::Start() {
     m_StartButton->m_Transform.translation = {210.0f, 130.0f};
     m_StartButton->SetZIndex(20);
 
-    // 選關
     m_SelectLevelBG = std::make_shared<Util::GameObject>();
     m_SelectLevelBG->SetDrawable(std::make_shared<Util::Image>("resources/image/menu/select.jpg"));
     m_SelectLevelBG->SetZIndex(60);
 
+    // 關卡按鈕 (確保 impact.ttf 確實存在於該路徑)
     for (int i = 0; i < 10; ++i) {
         auto btn = std::make_shared<Util::GameObject>();
         btn->SetDrawable(std::make_shared<Util::Image>("resources/image/menu/level.png"));
@@ -55,7 +55,6 @@ void App::Start() {
         m_LevelButtons.push_back(btn);
 
         auto txt = std::make_shared<Util::GameObject>();
-        // 修正：FromRGB 只傳 3 個參數
         txt->SetDrawable(std::make_shared<Util::Text>(
             "resources/font/impact.ttf", 30,
             std::to_string(i + 1),
@@ -65,12 +64,10 @@ void App::Start() {
         m_LevelTexts.push_back(txt);
     }
 
-    // 地圖（稍後在 LoadLevelConfig 重建，這裡先給預設值）
     m_Map = std::make_shared<GameMap>("resources/image/map.jpg");
     m_Map->m_Transform.scale = {2.0f, 2.0f};
     m_Map->SetZIndex(0);
 
-    // 種子欄 & 拖拉預覽
     m_SeedBank = std::make_shared<SeedBank>();
     m_SeedBank->InitCards({1, 2, 3});
 
@@ -79,7 +76,6 @@ void App::Start() {
     m_DragPreview->SetVisible(false);
     m_Root.AddChild(m_DragPreview);
 
-    // 失敗畫面（最後加入 Root，確保渲染系統已就緒）
     m_DefeatScreen = std::make_shared<Util::GameObject>();
     m_DefeatScreen->SetDrawable(std::make_shared<Util::Image>("resources/image/defeat.png"));
     m_DefeatScreen->m_Transform.translation = {0.0f, 0.0f};
@@ -271,7 +267,8 @@ void App::UpdateGameState(float dt, glm::vec2 mousePos) {
 // =============================================================================
 
 void App::UpdateDefeatState(float dt) {
-    m_Root.Update(); // DefeatScreen 在 Root 內，SetVisible(true) 後自動渲染
+    m_Root.Update();
+    m_DefeatScreen->Draw();
     m_StateTimer += dt;
     if (m_StateTimer >= 3.0f) {
         m_DefeatScreen->SetVisible(false);
