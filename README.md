@@ -1,24 +1,134 @@
-# PTSD Template
+# 2026 OOPL Final Report
 
-This is a [PTSD](https://github.com/ntut-open-source-club/practical-tools-for-simple-design) framework template for students taking OOPL2024s.
+## 組別資訊
 
-## Quick Start
+組別：T25  
+組員：112590001 簡郁恩、112590010 鄭雅媜  
+復刻遊戲：植物大戰殭屍  
 
-1. Use this template to create a new repository
-   ![github screenshot](https://github.com/ntut-rick/ptsd-template/assets/126899559/ef62242f-03ed-481d-b858-12b730c09beb)
+## 專案簡介
 
-2. Clone your repository
+### 遊戲簡介
 
-   ```bash
-   git clone YOUR_GIT_URL --recursive
-   ```
+植物大戰殭屍是一款塔防遊戲，玩家需要利用擁有的植物阻止不斷到來的殭屍進入小屋吃掉住戶的腦子。
 
-3. Build your project
+### 組別分工
+| 姓名 | 分工內容                   | 
+|------|------------------------|
+| 112590001  簡郁恩   | 系統架構、主畫面 & 選單系統 & 遊戲畫面UI、植物行為 |  
+| 112590010  鄭雅媜    | 殭屍行為、關卡設計、遊戲音效 |    
 
-  > [!WARNING]
-  > Please build your project in `Debug` because our `Release` path is broken D:
-   
-   ```sh
-   cmake -DCMAKE_BUILD_TYPE=Debug -B build # -G Ninja
-   ```
-   better read [PTSD README](https://github.com/ntut-open-source-club/practical-tools-for-simple-design)
+
+## 遊戲介紹
+
+### 遊戲規則
+
+- 遊戲場景有兩種，分別為白天草坪，黑夜草坪，每個場景有五條軌道。
+- 殭屍會隨機出現在某一條軌道，並沿直線前進；而植物也只能攻擊或抵禦一條軌道上的殭屍。
+- 每條軌道末端還有一次性攻擊裝置（割草機），可以清除該條軌道上所有殭屍。
+- 勝利條件: 當玩家擊敗所有殭屍，即為勝利。
+- 失敗條件: 當殭屍抵達軌道最左邊，即為失敗。
+- 作弊模式：  
+　F1：加1000陽光  
+　F2：秒殺地圖上殭屍  
+　F3：強制關卡勝利並結束  
+　F4：植物冷卻歸零  
+
+### 遊戲畫面
+
+▼ 主畫面
+
+<img width="1602" height="933" alt="Image" src="https://github.com/user-attachments/assets/a893f441-d6da-498a-b2f8-d6fbbc3605d5" />  
+  
+
+▼ 選關畫面
+
+<img width="1602" height="933" alt="Image" src="https://github.com/user-attachments/assets/ddb9e448-a2dc-411f-9a4e-21c4bca88212" />  
+
+▼ 白天地圖（第一～五關）
+
+<img width="1602" height="933" alt="Image" src="https://github.com/user-attachments/assets/e12d38e5-1e34-4e4e-be42-0f728028d105" />  
+
+▼ 夜晚地圖（第六～十關）
+
+<img width="1602" height="933" alt="Image" src="https://github.com/user-attachments/assets/f3c13f52-849d-4371-971d-aabe63f3b758" />  
+
+▼ 失敗畫面
+
+<img width="1602" height="933" alt="Image" src="https://github.com/user-attachments/assets/251c03b5-7b00-42cf-8348-a20b053be49e" />  
+
+註：若遊戲勝利會跳回選關畫面。  
+
+## 程式設計
+
+### 程式架構
+
+- 物件導向階層設計：  
+    建立 GameEntity 為基礎類別，將共有的屬性（位置、Z-index、血量）與方法封裝起來。  
+    使用繼承機制 (Plant, Zombie)，並透過 virtual void Update() 實現多型，讓遊戲主迴圈能統一管理不同型態的實體。  
+
+- 遊戲主迴圈與狀態機：  
+    導入狀態機模式，將遊戲劃分為 START, SELECT_LEVEL, UPDATE, DEFEAT 等狀態。  
+
+- 模組化分工：  
+    將植物攻擊邏輯 (UpdatePlantActions)、地圖管理 (GameMap)、種植系統 (SeedBank)分離，確保程式碼的可維護性，方便小組協作。  
+
+### 程式技術
+
+- 使用 std::shared_ptr 管理遊戲物件：  
+    處理 Memory Leak 問題，確保殭屍頭、豌豆子彈在超出螢幕或死亡後，記憶體能被自動正確釋放。  
+
+- 使用 Util::Time::GetDeltaTimeMs()：  
+    確保遊戲邏輯（移動速度、開火間隔）與螢幕更新率無關。無論電腦效能如何，殭屍的移動速度一致。  
+
+- 碰撞偵測與邏輯判定：  
+    GetGridIndex：處理地圖與殭屍的交互。  
+    glm::distance：處理戰鬥碰撞。  
+
+- 檔案系統與動畫管理：  
+    使用 <filesystem> 函式庫，動態讀取資料夾內的圖片檔，並結合 std::sort 確保動畫幀數排序正確。  
+
+### 使用到 AI/AI Agent 的部分 (沒有用到者，不需要寫這篇)
+
+1. 複雜 Bug 除錯：  
+利用 AI 分析編譯器錯誤訊息（如 undefined reference 連結錯誤），快速定位到 Header 與 Source 檔案中實作不匹配的問題，並解決了資源載入時的渲染衝突。
+
+2. 架構重構與標準化：  
+在開發初期，透過 AI 協助將各植物的實作標準化，確保所有植物皆遵循相同的 Update 介面與動畫處理機制，解決了團隊合併程式碼後常見的邏輯碎片化問題。而在開發後期，面對新增的複雜行為需求，我們再次利用 AI 進行重構，將原本耦合於主程式中的複雜判定邏輯抽離，進一步改善了植物與殭屍的互動框架。
+
+3. 版本控制協作：  
+當面對 GitHub Merge Conflict 時，透過 AI 輔助分析差異，優化了處理衝突的策略，確保開發節奏不受影響。  
+
+## 結語
+
+### 問題與解決方法　　
+
+| 問題 | 解決方式                |
+|------|------------------------|
+| 膽小菇範圍判定不自然  | 改用 glm::distance 計算距離，確保偵測半徑平滑且準確。 |
+| 殭屍頭部動畫卡住/不移除  | 在 App 的 Update 迴圈中加入 Update(dt) 呼叫，並透過倒數計時器確保屍體被自動回收。 |
+| 圖片讀取錯誤　 | 撰寫標準化 GetFramesFromFolder，結合 std::sort 確保幀序列正確；並將所有資源統一格式化為標準 PNG。 |
+
+
+### 自評
+
+| 項次 | 項目                   | 完成 |
+|------|------------------------|-------|
+| 1    | 這是範例 |  V  |
+| 2    | 完成專案權限改為 public |  V  |
+| 3    | 具有 debug mode 的功能  |  V  |
+| 4    | 解決專案上所有 Memory Leak 的問題  |  V  |
+| 5    | 報告中沒有任何錯字，以及沒有任何一項遺漏  |  V  |
+| 6    | 報告至少保持基本的美感，人類可讀  |  V  |
+
+### 心得　　
+| 姓名 | 心得               | 
+|------|------------------------|
+| 112590001  簡郁恩    | OOP實習讓我們活用了上學期在課堂上學到的概念，實際撰寫過後才徹底理解為什麼需要這些程式框架？好處在哪裡？可維護性具體的意思等等。雖然開發過程也常常有撞牆期，但整體來說我覺得自己復刻遊戲非常有趣，最終遊玩成品時也很有成就感。 |  
+| 112590010  鄭雅媜    | 巴巴博一 |    
+### 貢獻比例
+
+| 姓名 | 貢獻比例               | 
+|------|------------------------|
+| 112590001  簡郁恩    | 50% |  
+| 112590010  鄭雅媜    | 50% |    
