@@ -139,8 +139,6 @@ void Zombie::SetState(State state) {
 void Zombie::UpdateAnimation() {
     std::string path;
     int interval = 120;
-
-    // 🚩 核心修正：全部強制 loop = true 規避記憶體破圖 bug，靠 m_DeathTimer 回收
     bool loop = true;
 
     // 確保撐竿跳殭屍大小正確
@@ -217,7 +215,7 @@ void Zombie::UpdateAnimation() {
 
     // 精準計算倒下動畫的播放時間，播完剛好被 App.cpp 回收移除
     if (m_CurrentState == State::DEAD) {
-        m_DeathTimer = (frames.size() * interval) / 1000.0f;
+        m_DeathTimer = (frames.size() * actualInterval) / 1000.0f;
     }
 }
 

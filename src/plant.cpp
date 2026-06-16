@@ -159,6 +159,7 @@ void PotatoMine::Trigger() {
     if (m_State == MineState::READY) {
         m_State = MineState::EXPLODING;
         m_LocalTimer = 0.0f;
+        SetZIndex(60);
 
         auto paths = GetFramesFromFolder("resources/image/potatomine/explode");
         if (!paths.empty()) {
